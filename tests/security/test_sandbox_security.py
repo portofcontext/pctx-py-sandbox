@@ -142,9 +142,9 @@ class TestFilesystemIsolation:
         try_write_host(host_file)
 
         # But file should NOT exist on host
-        assert not os.path.exists(
-            host_file
-        ), "Sandbox should not be able to write to host filesystem"
+        assert not os.path.exists(host_file), (
+            "Sandbox should not be able to write to host filesystem"
+        )
 
         # Cleanup
         if os.path.exists(host_file):
@@ -197,9 +197,9 @@ class TestEnvironmentIsolation:
         host_hostname = socket.gethostname()
 
         # Verify we're in a different environment (different hostname)
-        assert (
-            result["hostname"] != host_hostname
-        ), "Sandbox should run in VM with different hostname"
+        assert result["hostname"] != host_hostname, (
+            "Sandbox should run in VM with different hostname"
+        )
 
     def test_different_hostname_in_sandbox(self):
         """Verify sandbox has different hostname than host."""
