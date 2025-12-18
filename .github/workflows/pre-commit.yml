@@ -1,0 +1,79 @@
+name: Pre-commit Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+jobs:
+  pre-commit:
+    name: Pre-commit Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Check formatting
+        run: |
+          echo "Checking code formatting with ruff..."
+          uv run ruff format --check . || {
+            echo "❌ Code formatting check failed!"
+            echo "Run 'uv run ruff format .' to fix formatting issues"
+            exit 1
+          }
+
+      - name: Lint code
+        run: |
+          echo "Linting code with ruff..."
+          uv run ruff check . || {
+            echo "❌ Linting check failed!"
+            echo "Run 'uv run ruff check --fix .' to auto-fix issues"
+            exit 1
+          }
+
+      - name: Type check
+        run: |
+          echo "Type checking with mypy..."
+          uv run mypy src/pctx_sandbox --ignore-missing-imports || {
+            echo "⚠️  Type checking found issues (non-blocking)"
+          }
+        continue-on-error: true
+
+      - name: Check imports
+        run: |
+          echo "Checking if package can be imported..."
+          uv run python -c "
+          from pctx_sandbox import (
+              sandbox,
+              sandbox_async,
+              SandboxError,
+              SandboxExecutionError,
+          )
+          print('✅ All imports successful')
+          "
+
+      - name: Security check
+        run: |
+          echo "Running security checks..."
+          # Install bandit for security checks
+          uv pip install bandit
+          uv run bandit -r src/pctx_sandbox -ll || {
+            echo "⚠️  Security issues found (non-blocking)"
+          }
+        continue-on-error: true
+
+      - name: Check for todos
+        run: |
+          echo "Checking for TODO/FIXME comments..."
+          grep -r "TODO\|FIXME" src/ tests/ || echo "No TODOs found"
+        continue-on-error: true

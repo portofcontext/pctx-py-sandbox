@@ -1,0 +1,83 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'src/**/*.py'
+      - 'README.md'
+      - 'DEVELOPMENT.md'
+  workflow_dispatch:
+
+jobs:
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Check README
+        run: |
+          echo "Validating README.md..."
+          test -f README.md
+          wc -l README.md
+
+      - name: Check DEVELOPMENT.md
+        run: |
+          echo "Validating DEVELOPMENT.md..."
+          test -f DEVELOPMENT.md
+          wc -l DEVELOPMENT.md
+
+      - name: Check QUICKSTART.md
+        run: |
+          echo "Validating QUICKSTART.md..."
+          test -f QUICKSTART.md
+          wc -l QUICKSTART.md
+
+      - name: Validate docstrings
+        run: |
+          echo "Checking for docstrings..."
+          uv run python -c "
+          import ast
+          from pathlib import Path
+
+          def check_docstrings(file_path):
+              with open(file_path) as f:
+                  tree = ast.parse(f.read())
+
+              for node in ast.walk(tree):
+                  if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                      if not ast.get_docstring(node):
+                          print(f'Missing docstring: {file_path}::{node.name}')
+
+          for py_file in Path('src/pctx_sandbox').rglob('*.py'):
+              check_docstrings(py_file)
+          "
+        continue-on-error: true
+
+      - name: Generate API reference
+        run: |
+          # Install pdoc for API documentation
+          uv pip install pdoc
+          uv run pdoc pctx_sandbox --html --output-dir docs/api
+        continue-on-error: true
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs/
+          retention-days: 30
+        if: success()

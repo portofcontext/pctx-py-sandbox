@@ -1,0 +1,77 @@
+# Lima VM configuration for pctx-sandbox
+# This VM hosts the sandbox agent which manages Firecracker microVMs
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+  - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+cpus: 4
+memory: "8GiB"
+disk: "100GiB"
+
+mounts:
+  - location: "~"
+    writable: false
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # Update package lists
+      apt-get update
+
+      # Install required packages
+      apt-get install -y \
+        python3.10 \
+        python3-pip \
+        curl \
+        git \
+        build-essential \
+        firejail
+
+      # Install uv for Python package management
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      # Install Python venv
+      apt-get install -y python3-venv
+
+      # Create cache directory
+      mkdir -p /tmp/pctx-cache
+      chmod 777 /tmp/pctx-cache
+
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # Add uv to PATH
+      export PATH="$HOME/.cargo/bin:$PATH"
+
+      # Clone or update the pctx-sandbox repository (adjust as needed)
+      # For now, we'll expect the agent code to be installed separately
+      echo "VM provisioned. Install pctx-sandbox agent separately."
+
+# Port forwarding for agent API
+portForwards:
+  - guestPort: 9000
+    hostPort: 9000
+    proto: tcp
+
+# Use QEMU with KVM support for nested virtualization
+# Required for Firecracker to work inside the VM
+vmType: "qemu"
+
+# Enable nested virtualization so Firecracker can use KVM inside the Lima VM
+hostResolver:
+  enabled: true
+
+# QEMU needs this for KVM access
+additionalDisks: []

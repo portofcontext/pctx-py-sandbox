@@ -1,0 +1,22 @@
+# Python
+*.pyc
+__pycache__/
+*.so
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+*.lock
+uv.lock
+
+# Sphinx documentation
+pctx-py/docs/_build/
+pctx-py/docs/_static/
+pctx-py/docs/_templates/
+
+# IDE / AI Stuff
+.claude/
+CLAUDE.md
