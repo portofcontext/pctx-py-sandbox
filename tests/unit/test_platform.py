@@ -33,8 +33,9 @@ class TestGetBackend:
     def test_returns_lima_backend_on_darwin(self):
         """Should return LimaBackend on macOS."""
         with patch("sys.platform", "darwin"):
-            backend = get_backend()
-            assert backend.__class__.__name__ == "LimaBackend"
+            with patch("pctx_sandbox.platform.lima.LimaBackend.is_available", return_value=True):
+                backend = get_backend()
+                assert backend.__class__.__name__ == "LimaBackend"
 
     def test_raises_on_linux(self):
         """Should raise PlatformNotSupportedError on Linux (not yet implemented)."""
