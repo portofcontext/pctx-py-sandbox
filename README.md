@@ -47,11 +47,64 @@ def process_data(data: list[dict]) -> dict:
 result = process_data([{"name": "Alice", "age": 30}])
 ```
 
+## How Dependencies Work
+
+The `@sandbox` decorator handles dependencies automatically:
+
+1. **Specify dependencies** using standard pip syntax:
+   ```python
+   @sandbox(dependencies=["requests==2.31.0", "pandas>=2.0.0"])
+   def fetch_and_process(url: str) -> dict:
+       import requests
+       import pandas as pd
+       # Your code here
+   ```
+
+2. **Dependency caching** - Dependencies are installed once per unique set and cached:
+   - Each unique combination of dependencies creates a persistent VM image
+   - Subsequent runs with the same dependencies reuse the cached environment
+   - Cache key is based on the sorted list of dependencies
+
+3. **Isolation guarantees**:
+   - Dependencies are installed only in the sandbox environment
+   - Your host system remains unchanged
+   - Different sandboxes can use conflicting dependency versions
+
+4. **No dependencies needed?** Just omit the parameter:
+   ```python
+   @sandbox()
+   def safe_computation(x: int) -> int:
+       return x ** 2
+   ```
+
 ## Development
 
 ```bash
+# Install dependencies
+make install
+
+# Run tests
+make test
+
+# Format code
+make format
+
+# Lint code
+make lint
+
+# Type check
+make type-check
+
+# See all available commands
+make help
+```
+
+<details>
+<summary>Direct uv commands (if not using make)</summary>
+
+```bash
 # Install with uv
-uv sync
+uv sync --all-extras
 
 # Run tests
 uv run pytest tests/unit/ -v
@@ -65,6 +118,7 @@ uv run ruff check .
 # Type check
 uv run mypy src/pctx_sandbox
 ```
+</details>
 
 ## How It Works
 
@@ -97,7 +151,7 @@ Planned: WSL2-based backend
 
 ## Requirements
 
-- **macOS**: Lima (install: `brew install lima`) ✅
+- **macOS**: Lima (install: `brew install lima`)
 - **Linux**: Coming soon 🚧
 - **Windows**: Coming soon 🚧
 

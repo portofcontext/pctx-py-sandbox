@@ -10,7 +10,7 @@ build/
 venv/
 .pytest_cache/
 *.lock
-uv.lock
+!uv.lock
 
 # Sphinx documentation
 pctx-py/docs/_build/
