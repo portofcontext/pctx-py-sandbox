@@ -4,8 +4,6 @@ import sys
 from pathlib import Path
 from typing import Literal
 
-from pctx_sandbox.exceptions import KVMNotAvailableError
-
 from .base import SandboxBackend
 from .lima import LimaBackend
 from .native import NativeBackend
@@ -48,8 +46,8 @@ def get_backend() -> SandboxBackend:
         # macOS: Use Lima for VM-level isolation (filesystem, env, resources)
         # Lima VM uses firejail inside for syscall restrictions
         # This provides defense-in-depth: VM isolation + process sandboxing
-        from .lima import LimaBackend
         from ..exceptions import LimaNotInstalledError
+        from .lima import LimaBackend
 
         backend = LimaBackend()
         if not backend.is_available():

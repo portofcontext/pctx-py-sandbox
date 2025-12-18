@@ -30,7 +30,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Run tests
         run: uv run pytest tests/unit/ -v --tb=short
@@ -55,7 +55,7 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Check formatting with ruff
         run: uv run ruff format --check .
@@ -80,7 +80,7 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Type check with mypy
         run: uv run mypy src/pctx_sandbox --ignore-missing-imports
@@ -103,7 +103,7 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Install coverage tools
         run: uv add --dev pytest-cov
@@ -156,7 +156,7 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Test platform detection
         run: |

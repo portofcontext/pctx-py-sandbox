@@ -1,6 +1,5 @@
 """Sandbox decorator implementation."""
 
-import asyncio
 import functools
 import hashlib
 import inspect
@@ -70,6 +69,7 @@ def sandbox(
     def decorator(fn: F) -> F:
         # Check if function is async
         if inspect.iscoroutinefunction(fn):
+
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 client = _get_client()
@@ -117,6 +117,7 @@ def sandbox(
             return async_wrapper  # type: ignore
 
         else:
+
             @functools.wraps(fn)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 client = _get_client()

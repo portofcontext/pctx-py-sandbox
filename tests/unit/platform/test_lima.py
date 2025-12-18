@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from pctx_sandbox.exceptions import LimaNotInstalledError, SandboxStartupError
+from pctx_sandbox.exceptions import SandboxStartupError
 from pctx_sandbox.platform.lima import LimaBackend
 
 

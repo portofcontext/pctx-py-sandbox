@@ -5,19 +5,15 @@ in a separate Python process within the Lima VM.
 """
 
 import asyncio
-import hashlib
-import json
 import shutil
 import sys
 import tempfile
-import traceback
 from pathlib import Path
 from typing import Any
 
 import cloudpickle
 import msgpack
 from fastapi import FastAPI, Request, Response
-from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -141,9 +137,7 @@ sys.stdout.buffer.write(base64.b64encode(cloudpickle.dumps(output)))
             )
 
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=timeout_sec
-                )
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_sec)
             except asyncio.TimeoutError:
                 proc.kill()
                 return {

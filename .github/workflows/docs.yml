@@ -7,7 +7,6 @@ on:
       - 'docs/**'
       - 'src/**/*.py'
       - 'README.md'
-      - 'DEVELOPMENT.md'
   workflow_dispatch:
 
 jobs:
@@ -26,25 +25,13 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-extras
 
       - name: Check README
         run: |
           echo "Validating README.md..."
           test -f README.md
           wc -l README.md
-
-      - name: Check DEVELOPMENT.md
-        run: |
-          echo "Validating DEVELOPMENT.md..."
-          test -f DEVELOPMENT.md
-          wc -l DEVELOPMENT.md
-
-      - name: Check QUICKSTART.md
-        run: |
-          echo "Validating QUICKSTART.md..."
-          test -f QUICKSTART.md
-          wc -l QUICKSTART.md
 
       - name: Validate docstrings
         run: |

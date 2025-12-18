@@ -1,9 +1,9 @@
-# pctx-sandbox
 
 <div align="center">
+<h1>pctx-sandbox </h1>
 
 [![Made by](https://img.shields.io/badge/MADE%20BY-Port%20of%20Context-1e40af.svg?style=for-the-badge&labelColor=0c4a6e)](https://portofcontext.com)
-    <h2>from pctx_sandbox import sandbox</h1>
+    <h3><code>from pctx_sandbox import sandbox</code></h3>
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -103,13 +103,22 @@ Planned: WSL2-based backend
 
 ## Security Features
 
-✅ Filesystem isolation (no access to ~/.ssh, ~/.aws, etc.)
-✅ Environment variable isolation (no credential leakage)
-✅ Syscall filtering (seccomp-bpf/firejail)
-✅ Network isolation (blocked by default)
-✅ Resource limits (CPU, memory, timeout)
-✅ No privilege escalation
-✅ Safe for untrusted LLM-generated code
+### Security Validation
+
+All security claims are validated by comprehensive tests in [tests/security/test_sandbox_security.py](tests/security/test_sandbox_security.py). The test suite covers:
+
+- **Filesystem Isolation**: Verifies host credentials (SSH keys, AWS/GCP credentials) are inaccessible
+- **Environment Isolation**: Ensures host environment variables don't leak into sandbox
+- **Network Isolation**: Confirms network access is blocked by default
+- **Process Isolation**: Validates sandbox cannot see or interact with host processes
+- **Privilege Isolation**: Tests that privilege escalation (root, sudo, chown) is blocked
+- **Resource Limits**: Confirms timeouts and memory limits are enforced
+- **Syscall Filtering**: Verifies dangerous syscalls (ptrace, mount) are blocked
+
+Run security tests:
+```bash
+uv run pytest tests/security/ -v
+```
 
 ## License
 

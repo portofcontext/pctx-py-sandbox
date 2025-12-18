@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from pctx_sandbox.exceptions import LimaNotInstalledError, SandboxStartupError
+from pctx_sandbox.exceptions import SandboxStartupError
 
 from .base import SandboxBackend
 

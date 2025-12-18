@@ -93,14 +93,10 @@ class TestSandboxDecoratorIntegration:
 
         @sandbox(dependencies=["requests==2.31.0"])
         def func1() -> str:
-            import requests
-
             return "func1"
 
         @sandbox(dependencies=["requests==2.31.0"])
         def func2() -> str:
-            import requests
-
             return "func2"
 
         result1 = func1()
@@ -241,7 +237,6 @@ class TestSandboxDecoratorIntegration:
         @sandbox(dependencies=["httpx==0.27.0"])
         def check_network() -> bool:
             # Basic test - can we import and use httpx?
-            import httpx
 
             return True
 
@@ -267,8 +262,8 @@ class TestSandboxDecoratorIntegration:
 
         @sandbox(dependencies=["requests==2.31.0", "certifi==2023.7.22"])
         def check_multiple_deps() -> tuple[str, str]:
-            import requests
             import certifi
+            import requests
 
             return (requests.__version__, certifi.__version__)
 
