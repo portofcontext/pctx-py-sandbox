@@ -42,10 +42,11 @@ class SandboxClient:
         start = time.time()
         while time.time() - start < max_wait:
             try:
-                r = self._http.get(f"{self.base_url}/health")
+                r = self._http.get(f"{self.base_url}/health", timeout=1.0)
                 if r.status_code == 200:
                     return
-            except httpx.ConnectError:
+            except (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError):
+                # Handle connection refused, connection reset, and protocol errors during startup
                 pass
             time.sleep(0.5)
         raise SandboxStartupError(f"Agent not healthy after {max_wait}s")
