@@ -341,18 +341,25 @@ class WarmSandboxPool:
         healthy_workers = 0
         attempts = 0
         max_attempts = self.pool_size * 3  # Try up to 3x the pool size
+        errors = []
 
         while healthy_workers < self.pool_size and attempts < max_attempts:
             try:
                 await self._create_worker()
                 healthy_workers += 1
-            except RuntimeError as e:
-                logger.warning(f"Failed to create worker: {e}")
+            except Exception as e:
+                error_msg = f"Attempt {attempts + 1}: {type(e).__name__}: {e}"
+                logger.warning(f"Failed to create worker: {error_msg}")
+                errors.append(error_msg)
                 attempts += 1
                 continue
 
         if healthy_workers == 0:
-            raise RuntimeError("Failed to create any healthy workers")
+            error_summary = "\n".join(errors[-5:])  # Last 5 errors for context
+            raise RuntimeError(
+                f"Failed to create any healthy workers after {attempts} attempts.\n"
+                f"Recent errors:\n{error_summary}"
+            )
 
         logger.info(f"Started pool with {healthy_workers} healthy workers")
 
@@ -437,7 +444,15 @@ class WarmSandboxPool:
                 f"No workers available in pool, creating ad-hoc worker "
                 f"(memory={memory_mb}MB, cpus={cpus})"
             )
-            worker = await self._create_worker(memory_mb=memory_mb, cpus=cpus)
+            try:
+                worker = await self._create_worker(memory_mb=memory_mb, cpus=cpus)
+            except Exception as e:
+                logger.error(f"Failed to create ad-hoc worker: {e}")
+                return {
+                    "error": True,
+                    "error_type": "WorkerCreationFailed",
+                    "error_message": f"Failed to create worker: {e}",
+                }
 
         # Execute the job
         result = await worker.execute(fn_pickle, args_pickle, kwargs_pickle, timeout_sec)
