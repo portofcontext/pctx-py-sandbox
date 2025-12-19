@@ -166,8 +166,6 @@ class PodmanBackend(SandboxBackend):
                     str(self.cpus),
                     "-p",
                     f"{self.AGENT_PORT}:{self.AGENT_PORT}",
-                    # Network isolation
-                    "--network=none",
                     # Enforce proper isolation
                     "--userns=auto",  # Use user namespace remapping
                     "--pid=private",  # Private PID namespace
@@ -177,10 +175,7 @@ class PodmanBackend(SandboxBackend):
                     # Prevent privilege escalation
                     "--security-opt",
                     "no-new-privileges",
-                    # Tmpfs for /tmp with exec for pip installs but nosuid
-                    "--tmpfs",
-                    "/tmp:rw,exec,nosuid,size=2g",
-                    # Mount cache directory inside /tmp
+                    # Mount cache directory for dependency caching
                     "-v",
                     f"{cache_dir}:/tmp/pctx-cache",
                     # Disable SELinux label enforcement (needed for rootless)
