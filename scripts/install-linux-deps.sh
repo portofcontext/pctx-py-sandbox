@@ -29,6 +29,9 @@ cd /
 rm -rf "$NSJAIL_DIR"
 
 echo "Verifying nsjail installation..."
-nsjail --version
+nsjail --help > /dev/null 2>&1 || {
+    echo "Error: nsjail installation failed"
+    exit 1
+}
 
 echo "nsjail installed successfully!"

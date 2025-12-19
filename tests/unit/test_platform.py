@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pctx_sandbox.exceptions import PlatformNotSupportedError
+from pctx_sandbox.exceptions import NsjailNotInstalledError, PlatformNotSupportedError
 from pctx_sandbox.platform import detect_platform, get_backend
 
 
@@ -37,13 +37,25 @@ class TestGetBackend:
                 backend = get_backend()
                 assert backend.__class__.__name__ == "LimaBackend"
 
-    def test_raises_on_linux(self):
-        """Should raise PlatformNotSupportedError on Linux (not yet implemented)."""
+    def test_returns_native_backend_on_linux(self):
+        """Should return NativeBackend on Linux when nsjail is available."""
         with patch("sys.platform", "linux"):
-            with pytest.raises(PlatformNotSupportedError) as exc_info:
-                get_backend()
-            assert "Linux support is not yet implemented" in str(exc_info.value)
-            assert "firejail/bubblewrap" in str(exc_info.value)
+            with patch(
+                "pctx_sandbox.platform.native.NativeBackend.is_available", return_value=True
+            ):
+                backend = get_backend()
+                assert backend.__class__.__name__ == "NativeBackend"
+
+    def test_raises_on_linux_without_nsjail(self):
+        """Should raise NsjailNotInstalledError on Linux when nsjail is not available."""
+        with patch("sys.platform", "linux"):
+            with patch(
+                "pctx_sandbox.platform.native.NativeBackend.is_available", return_value=False
+            ):
+                with pytest.raises(NsjailNotInstalledError) as exc_info:
+                    get_backend()
+                assert "nsjail is not installed" in str(exc_info.value)
+                assert "install-linux-deps.sh" in str(exc_info.value)
 
     def test_raises_on_windows(self):
         """Should raise PlatformNotSupportedError on Windows (not yet implemented)."""

@@ -140,7 +140,9 @@ class NativeBackend(SandboxBackend):
                         break  # Process terminated
                 else:
                     # Force kill if still running
-                    os.kill(pid, signal.SIGKILL)
+                    # Use SIGKILL on Unix, SIGTERM on Windows (which doesn't have SIGKILL)
+                    kill_signal = getattr(signal, "SIGKILL", signal.SIGTERM)
+                    os.kill(pid, kill_signal)
             except OSError:
                 pass  # Process already dead
         except (ValueError, OSError):

@@ -224,7 +224,9 @@ class TestEnvironmentIsolation:
         # On Linux: May be same hostname (nsjail doesn't change hostname by default)
         #           but still isolated via UTS namespace
         if sys.platform == "darwin":
-            assert sandbox_hostname != host_hostname, "Sandbox should have different hostname than host"
+            assert sandbox_hostname != host_hostname, (
+                "Sandbox should have different hostname than host"
+            )
         # On Linux, hostname may be same but isolation is still enforced via namespaces
 
 
