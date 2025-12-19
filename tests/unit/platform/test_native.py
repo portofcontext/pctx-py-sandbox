@@ -1,5 +1,6 @@
 """Tests for Native backend."""
 
+import signal
 import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -269,11 +270,9 @@ class TestNativeBackend:
             # Process stays alive through all checks (50 iterations), then gets SIGKILL
             backend.stop()
 
-            # Should eventually send SIGKILL
-            assert any(
-                call[0] == (12345, 9)  # 9 is SIGKILL
-                for call in mock_kill.call_args_list
-            )
+            # Should eventually send SIGKILL (or SIGTERM on Windows where SIGKILL doesn't exist)
+            expected_signal = getattr(signal, "SIGKILL", signal.SIGTERM)
+            assert any(call[0] == (12345, expected_signal) for call in mock_kill.call_args_list)
 
     def test_destroy_stops_agent_and_removes_cache(self):
         """Should stop agent and remove cache directory."""

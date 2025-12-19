@@ -250,7 +250,7 @@ class TestNetworkIsolation:
             except Exception:
                 return False
 
-        result = check_network()
+        check_network()
 
         # Network should be blocked by sandbox configuration
         # Note: Current nsjail config has clone_newnet: false, so network may be available
@@ -271,7 +271,7 @@ class TestNetworkIsolation:
             except Exception as e:
                 return {"dns_works": False, "error": str(e)}
 
-        result = try_dns()
+        try_dns()
 
         # Note: Current nsjail config has clone_newnet: false, so DNS may work
         # To fully isolate network, set clone_newnet: true in nsjail.cfg
@@ -290,7 +290,7 @@ class TestNetworkIsolation:
             except Exception as e:
                 return {"http_works": False, "error": type(e).__name__}
 
-        result = try_http()
+        try_http()
 
         # Note: Current nsjail config has clone_newnet: false, so HTTP may work
         # To fully isolate network, set clone_newnet: true in nsjail.cfg
