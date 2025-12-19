@@ -169,7 +169,15 @@ class PodmanBackend(SandboxBackend):
                     # Mount cache directory for dependency caching
                     "-v",
                     f"{cache_dir}:/tmp/pctx-cache",
-                    # Security options for rootless containers
+                    # Enforce proper isolation
+                    "--userns=auto",  # Use user namespace remapping
+                    "--pid=private",  # Private PID namespace
+                    "--ipc=private",  # Private IPC namespace
+                    # Drop all capabilities
+                    "--cap-drop=ALL",
+                    # Security options
+                    "--security-opt",
+                    "no-new-privileges",
                     "--security-opt",
                     "label=disable",
                     self.IMAGE_NAME,
