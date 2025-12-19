@@ -42,7 +42,7 @@ jobs:
         run: make install
 
       - name: Run tests
-        run: make test-unit
+        run: make test
 
       - name: Check import works
         run: uv run python -c "from pctx_sandbox import sandbox, sandbox_async; print('Import successful')"

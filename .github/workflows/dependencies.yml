@@ -28,11 +28,6 @@ jobs:
           # Update all dependencies to latest versions
           uv lock --upgrade
 
-      - name: Run tests with updated dependencies
-        run: |
-          make install
-          make test-unit
-
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
