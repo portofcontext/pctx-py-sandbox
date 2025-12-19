@@ -8,25 +8,32 @@ import traceback
 import cloudpickle
 
 
+def read_exact(n: int) -> bytes:
+    """Read exactly n bytes from stdin."""
+    data = b""
+    while len(data) < n:
+        chunk = sys.stdin.buffer.read(n - len(data))
+        if not chunk:
+            return data  # EOF
+        data += chunk
+    return data
+
+
 async def main() -> None:
     """Main worker loop - reads jobs from stdin, executes, writes results to stdout."""
     while True:
         try:
             # Read length-prefixed message from stdin
-            length_bytes = await asyncio.get_event_loop().run_in_executor(
-                None, sys.stdin.buffer.read, 4
-            )
+            length_bytes = await asyncio.get_event_loop().run_in_executor(None, read_exact, 4)
 
-            if not length_bytes:
+            if len(length_bytes) < 4:
                 # EOF - parent closed connection, exit gracefully
                 break
 
             msg_length = int.from_bytes(length_bytes, byteorder="big")
 
             # Read the message payload
-            msg_bytes = await asyncio.get_event_loop().run_in_executor(
-                None, sys.stdin.buffer.read, msg_length
-            )
+            msg_bytes = await asyncio.get_event_loop().run_in_executor(None, read_exact, msg_length)
 
             # Decode the job
             job_data = cloudpickle.loads(base64.b64decode(msg_bytes))

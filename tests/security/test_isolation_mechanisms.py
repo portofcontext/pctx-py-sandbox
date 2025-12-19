@@ -212,7 +212,7 @@ class TestPIDNamespaceIsolation:
         """
 
         @sandbox()
-        def get_pid_1_info() -> dict[str, str]:
+        def get_pid_1_info() -> dict[str, str | bool]:
             try:
                 with open("/proc/1/comm") as f:
                     init_name = f.read().strip()
@@ -411,7 +411,7 @@ class TestCapabilityDropping:
         """
 
         @sandbox()
-        def try_mount() -> dict[str, bool | str]:
+        def try_mount() -> dict[str, bool | str | int]:
             import ctypes
             import ctypes.util
             import errno
@@ -464,7 +464,7 @@ class TestCgroupResourceLimits:
         """
 
         @sandbox(memory_mb=128)
-        def try_allocate_excessive_memory() -> dict[str, bool | str]:
+        def try_allocate_excessive_memory() -> dict[str, bool | str | int]:
             try:
                 # Attempt to allocate 256MB (exceeds 128MB limit)
                 big_list = []

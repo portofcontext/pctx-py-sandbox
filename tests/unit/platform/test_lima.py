@@ -100,9 +100,11 @@ class TestLimaBackend:
             patch.object(backend, "vm_exists", return_value=False),
             patch.object(backend, "_create_vm") as mock_create,
             patch.object(backend, "is_running", return_value=True),
+            patch.object(backend, "_start_agent") as mock_start_agent,
         ):
             backend.ensure_running()
             mock_create.assert_called_once()
+            mock_start_agent.assert_called_once()
 
     def test_ensure_running_starts_vm_when_stopped(self):
         """Should start VM when it exists but is stopped."""
@@ -112,9 +114,11 @@ class TestLimaBackend:
             patch.object(backend, "vm_exists", return_value=True),
             patch.object(backend, "is_running", side_effect=[False, True]),
             patch.object(backend, "_start_vm") as mock_start,
+            patch.object(backend, "_start_agent") as mock_start_agent,
         ):
             backend.ensure_running()
             mock_start.assert_called_once()
+            mock_start_agent.assert_called_once()
 
     def test_ensure_running_does_nothing_when_already_running(self):
         """Should not create or start VM when already running."""
@@ -125,10 +129,12 @@ class TestLimaBackend:
             patch.object(backend, "is_running", return_value=True),
             patch.object(backend, "_create_vm") as mock_create,
             patch.object(backend, "_start_vm") as mock_start,
+            patch.object(backend, "_start_agent") as mock_start_agent,
         ):
             backend.ensure_running()
             mock_create.assert_not_called()
             mock_start.assert_not_called()
+            mock_start_agent.assert_called_once()
 
     def test_create_vm_calls_limactl_create(self):
         """Should call limactl create with correct arguments."""

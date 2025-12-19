@@ -16,7 +16,7 @@ from fastapi import FastAPI, Request, Response
 try:
     from .pool import WarmSandboxPool
 except ImportError:
-    from pool import WarmSandboxPool
+    from pool import WarmSandboxPool  # type: ignore[no-redef]
 
 app = FastAPI()
 
