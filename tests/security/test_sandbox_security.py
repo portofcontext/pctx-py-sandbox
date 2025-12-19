@@ -23,6 +23,7 @@ import pytest
 from pctx_sandbox import sandbox
 
 
+@pytest.mark.requires_sandbox_agent
 class TestFilesystemIsolation:
     """Test that the sandbox cannot access host filesystem."""
 
@@ -151,6 +152,7 @@ class TestFilesystemIsolation:
             os.remove(host_file)
 
 
+@pytest.mark.requires_sandbox_agent
 class TestEnvironmentIsolation:
     """Test that the sandbox has isolated environment variables."""
 
@@ -230,6 +232,7 @@ class TestEnvironmentIsolation:
         # On Linux, hostname may be same but isolation is still enforced via namespaces
 
 
+@pytest.mark.requires_sandbox_agent
 class TestNetworkIsolation:
     """Test that the sandbox has network isolation."""
 
@@ -297,6 +300,7 @@ class TestNetworkIsolation:
         # assert result["http_works"] is False, "HTTP requests should be blocked"
 
 
+@pytest.mark.requires_sandbox_agent
 class TestProcessIsolation:
     """Test that the sandbox cannot interact with host processes."""
 
@@ -363,6 +367,7 @@ class TestProcessIsolation:
         assert result["killed"] is False, "Sandbox should not be able to kill host processes"
 
 
+@pytest.mark.requires_sandbox_agent
 class TestPrivilegeIsolation:
     """Test that the sandbox cannot escalate privileges."""
 
@@ -454,6 +459,7 @@ class TestPrivilegeIsolation:
             assert result.get("sudo_works") is False, "sudo should not work without password"
 
 
+@pytest.mark.requires_sandbox_agent
 class TestResourceLimits:
     """Test that resource limits are enforced."""
 
@@ -508,6 +514,7 @@ class TestResourceLimits:
             pass
 
 
+@pytest.mark.requires_sandbox_agent
 class TestSyscallFiltering:
     """Test that dangerous syscalls are blocked."""
 

@@ -1,7 +1,6 @@
 """Platform detection and backend selection."""
 
 import sys
-from pathlib import Path
 from typing import Literal
 
 from .base import SandboxBackend
@@ -19,15 +18,6 @@ def detect_platform() -> PlatformType:
         Platform identifier: "darwin", "linux", or "win32"
     """
     return sys.platform  # type: ignore
-
-
-def has_kvm_access() -> bool:
-    """Check if KVM device is accessible.
-
-    Returns:
-        True if /dev/kvm exists and is accessible
-    """
-    return Path("/dev/kvm").exists()
 
 
 def get_backend() -> SandboxBackend:
@@ -94,14 +84,13 @@ def get_backend() -> SandboxBackend:
 
     raise PlatformNotSupportedError(
         f"Unsupported platform: {platform}\n\n"
-        "Supported platforms: macOS (darwin)\n"
-        "Coming soon: Linux, Windows"
+        "Supported platforms: macOS (darwin), Linux\n"
+        "Coming soon: Windows"
     )
 
 
 __all__ = [
     "detect_platform",
-    "has_kvm_access",
     "get_backend",
     "SandboxBackend",
     "LimaBackend",

@@ -1,5 +1,5 @@
 # Lima VM configuration for pctx-sandbox
-# This VM hosts the sandbox agent which manages Firecracker microVMs
+# This VM hosts the sandbox agent with nsjail for process isolation
 
 images:
   - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
@@ -83,13 +83,11 @@ portForwards:
     hostPort: 9000
     proto: tcp
 
-# Use QEMU with KVM support for nested virtualization
-# Required for Firecracker to work inside the VM
+# Use QEMU for VM
 vmType: "qemu"
 
-# Enable nested virtualization so Firecracker can use KVM inside the Lima VM
+# Enable host DNS resolution
 hostResolver:
   enabled: true
 
-# QEMU needs this for KVM access
 additionalDisks: []

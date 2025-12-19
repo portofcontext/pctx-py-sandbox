@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pctx-sandbox"
 version = "0.1.0"
-description = "A Python decorator that transparently executes functions in isolated Firecracker microVMs"
+description = "A Python decorator that transparently executes functions in isolated microVMs"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Port of Context", email = "hello@portofcontext.com" }]
-keywords = ["sandbox", "firecracker", "microvm", "isolation", "security"]
+keywords = ["sandbox", "ai-agent", "microvm", "isolation", "security"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -59,8 +59,7 @@ addopts = ["-v", "--strict-markers"]
 markers = [
     "unit: Unit tests",
     "integration: Integration tests",
-    "requires_lima: Tests that require Lima to be installed",
-    "requires_kvm: Tests that require KVM access",
+    "requires_sandbox_agent: Tests that require a running sandbox agent",
 ]
 asyncio_mode = "auto"
 

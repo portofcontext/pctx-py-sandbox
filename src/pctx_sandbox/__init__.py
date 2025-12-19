@@ -1,9 +1,8 @@
-"""pctx-sandbox: Execute Python functions in isolated Firecracker microVMs."""
+"""pctx-sandbox: Execute Python functions in isolated sandboxes."""
 
 from .decorator import sandbox, sandbox_async
 from .exceptions import (
     DependencyInstallError,
-    KVMNotAvailableError,
     LimaNotInstalledError,
     PlatformNotSupportedError,
     SandboxError,
@@ -25,5 +24,4 @@ __all__ = [
     "DependencyInstallError",
     "PlatformNotSupportedError",
     "LimaNotInstalledError",
-    "KVMNotAvailableError",
 ]

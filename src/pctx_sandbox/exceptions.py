@@ -64,12 +64,6 @@ class LimaNotInstalledError(PlatformNotSupportedError):
     pass
 
 
-class KVMNotAvailableError(PlatformNotSupportedError):
-    """KVM not available on Linux."""
-
-    pass
-
-
 class NsjailNotInstalledError(PlatformNotSupportedError):
     """nsjail not installed on Linux."""
 

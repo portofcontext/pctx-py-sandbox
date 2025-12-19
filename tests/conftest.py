@@ -2,6 +2,23 @@
 
 import pytest
 
+from pctx_sandbox.platform import get_backend
+
+
+def pytest_collection_modifyitems(config, items):
+    """Automatically skip tests that require sandbox agent when it's not available."""
+    skip_agent = pytest.mark.skip(reason="Sandbox backend not available on this platform")
+
+    for item in items:
+        if "requires_sandbox_agent" in item.keywords:
+            try:
+                backend = get_backend()
+                if not backend.is_available():
+                    item.add_marker(skip_agent)
+            except Exception:
+                # If we can't get backend, skip the test
+                item.add_marker(skip_agent)
+
 
 @pytest.fixture
 def mock_lima_output():

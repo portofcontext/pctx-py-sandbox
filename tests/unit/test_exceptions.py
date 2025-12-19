@@ -4,7 +4,6 @@ import pytest
 
 from pctx_sandbox.exceptions import (
     DependencyInstallError,
-    KVMNotAvailableError,
     LimaNotInstalledError,
     PlatformNotSupportedError,
     SandboxError,
@@ -142,17 +141,3 @@ class TestLimaNotInstalledError:
         with pytest.raises(LimaNotInstalledError) as exc_info:
             raise LimaNotInstalledError("Lima not installed")
         assert "Lima" in str(exc_info.value)
-
-
-class TestKVMNotAvailableError:
-    """Tests for KVMNotAvailableError."""
-
-    def test_inherits_from_platform_not_supported(self):
-        """KVMNotAvailableError should inherit from PlatformNotSupportedError."""
-        assert issubclass(KVMNotAvailableError, PlatformNotSupportedError)
-
-    def test_can_be_raised(self):
-        """KVMNotAvailableError should be raisable."""
-        with pytest.raises(KVMNotAvailableError) as exc_info:
-            raise KVMNotAvailableError("KVM not available")
-        assert "KVM" in str(exc_info.value)

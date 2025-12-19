@@ -6,7 +6,7 @@ from pctx_sandbox import sandbox
 
 
 @pytest.mark.integration
-@pytest.mark.requires_lima
+@pytest.mark.requires_sandbox_agent
 class TestSandboxDecoratorIntegration:
     """Integration tests for @sandbox decorator with running agent."""
 

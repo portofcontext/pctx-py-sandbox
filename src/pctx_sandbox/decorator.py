@@ -41,13 +41,13 @@ def sandbox(
     cpus: int = 1,
     allow_network: list[str] | None = None,
 ) -> Callable[[F], F]:
-    """Decorator that runs a function in an isolated Firecracker microVM.
+    """Decorator that runs a function in an isolated sandbox.
 
     Args:
         dependencies: pip packages to install (e.g., ["pandas>=2.0", "numpy"])
-        memory_mb: Memory limit for the microVM
+        memory_mb: Memory limit for the sandbox
         timeout_sec: Maximum execution time
-        cpus: Number of vCPUs
+        cpus: Number of CPUs
         allow_network: List of allowed hostnames (None = no network)
 
     Returns:

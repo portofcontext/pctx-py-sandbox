@@ -73,7 +73,7 @@ class LimaBackend(SandboxBackend):
             self._start_vm()
 
     def _create_vm(self) -> None:
-        """Create the Lima VM with Firecracker and agent."""
+        """Create the Lima VM for sandbox agent."""
         subprocess.run(
             ["limactl", "create", "--name", self.VM_NAME, str(self._config_path)], check=True
         )

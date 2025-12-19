@@ -31,19 +31,14 @@ check:
 	uv run ruff format --check .
 	uv run ruff check .
 
-test: test-unit
+test:
+	uv run pytest tests/ -v
 
 test-unit:
 	uv run pytest tests/unit/ -v
 
 test-integration:
 	uv run pytest tests/integration/ -v
-
-test-security:
-	uv run pytest tests/security/ -v
-
-test-all:
-	uv run pytest tests/ -v
 
 type-check:
 	uvx ty check

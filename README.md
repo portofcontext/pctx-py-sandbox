@@ -160,7 +160,44 @@ Planned: WSL2-based backend
 - **Linux**: nsjail (see installation instructions above) + Python 3.10+
 - **Windows**: Coming soon 🚧
 
-## Security Features
+## Security
+
+### Why nsjail Provides Strong Isolation
+
+[nsjail](https://github.com/google/nsjail) is a **lightweight process isolation tool developed by Google** that provides security comparable to Docker containers, but with better performance (20ms subprocess creation vs Docker's slower container startup).
+
+**Core Security Mechanisms:**
+
+1. **Linux Namespaces** - Complete process isolation using 7 namespace types:
+   - **PID namespace**: Sandboxed processes cannot see host processes
+   - **Mount namespace**: Isolated filesystem, cannot access host files
+   - **Network namespace**: Network isolation (configurable)
+   - **User namespace**: Root in sandbox maps to unprivileged user on host
+   - **IPC namespace**: No shared memory with host processes
+   - **UTS namespace**: Separate hostname
+   - **Cgroup namespace**: Isolated cgroup view
+
+2. **Seccomp-BPF Syscall Filtering** - Blocks dangerous system calls like `ptrace`, `mount`, `reboot`, etc. using Kafel BPF language for fine-grained control
+
+3. **Cgroups v2** - Enforces resource limits:
+   - CPU time limits
+   - Memory limits
+   - Process count limits
+   - Network bandwidth control
+
+4. **Capability Dropping** - Removes Linux capabilities (even from root user in sandbox)
+
+5. **Read-only Filesystem** - Mounts can be configured as read-only to prevent tampering
+
+**Proven in Production:**
+
+- Used by Google for [kCTF](https://google.github.io/kctf/introduction.html) (Kubernetes CTF infrastructure)
+- Powers isolation in [Fly.io's sandboxing infrastructure](https://fly.io/blog/sandboxing-and-workload-isolation/)
+- Standard tool for CTF (Capture The Flag) security competitions
+
+**Defense-in-Depth on macOS:**
+
+On macOS, pctx-sandbox adds an additional VM layer (Lima) because macOS lacks Linux namespaces.
 
 ### Security Validation
 
@@ -178,6 +215,22 @@ Run security tests:
 ```bash
 uv run pytest tests/security/ -v
 ```
+
+### Limitations
+
+**Not a Security Boundary (Same as Docker):**
+
+Like Docker containers, nsjail provides [strong isolation but not a perfect security boundary](https://www.helpnetsecurity.com/2025/05/20/containers-namespaces-security/). Linux namespaces were designed for resource partitioning, not security isolation. While they provide excellent defense-in-depth:
+
+- All sandboxed processes share the same Linux kernel
+- Kernel vulnerabilities could potentially allow escapes
+- Side-channel attacks (Spectre, Meltdown) may leak information
+
+**Best Practices:**
+- Keep your kernel updated with security patches
+- Use on systems with recent kernels (5.10+) that have namespace security improvements
+- Consider the VM-based approach (macOS) for maximum isolation of highly untrusted code
+- Monitor for kernel CVEs related to namespaces and containers
 
 ## License
 
