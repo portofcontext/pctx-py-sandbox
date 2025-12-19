@@ -7,6 +7,7 @@ help:
 	@echo "  make lint               - Lint code with ruff"
 	@echo "  make check              - Run format check and lint"
 	@echo "  make test               - Run unit tests"
+	@echo "  make test-debug         - Run unit tests with debug logs"
 	@echo "  make test-unit          - Run unit tests only"
 	@echo "  make test-integration   - Run integration tests"
 	@echo "  make test-security      - Run security tests"
