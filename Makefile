@@ -1,4 +1,4 @@
-.PHONY: help install format lint check test test-unit test-integration test-security test-all type-check clean build
+.PHONY: help install format lint check test test-unit test-integration test-security test-all type-check clean build vm-reset vm-stop vm-status
 
 help:
 	@echo "Available commands:"
@@ -14,6 +14,7 @@ help:
 	@echo "  make type-check       - Run type checking with ty"
 	@echo "  make clean            - Clean build artifacts"
 	@echo "  make build            - Build package"
+	@echo "  make vm-kill-mac      - Delete and the Lima VM (macOS)"
 
 install:
 	uv sync --all-extras
@@ -33,6 +34,9 @@ check:
 
 test:
 	uv run pytest tests/ -v
+
+test-debug:
+	uv run pytest --log-cli-level=DEBUG
 
 test-unit:
 	uv run pytest tests/unit/ -v
@@ -54,3 +58,7 @@ clean:
 
 build:
 	uv build
+
+vm-kill-mac:
+	limactl stop pctx-sandbox
+	limactl delete pctx-sandbox

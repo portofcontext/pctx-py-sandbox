@@ -96,23 +96,18 @@ The `@sandbox` decorator handles dependencies automatically:
        return x ** 2
    ```
 
-## Development
+## VM Management (macOS)
+
+The Lima VM auto-starts on first use. To manage it manually:
 
 ```bash
-# Install dependencies
-make install
+limactl list                         # Check VM status
+limactl delete --force pctx-sandbox  # Delete for fresh start
+limactl stop pctx-sandbox            # Stop the VM
+```
 
-# Run tests
-make test
+## Development
 
-# Format code
-make format
-
-# Lint code
-make lint
-
-# Type check
-make type-check
 
 # See all available commands
 make help
@@ -122,7 +117,7 @@ make help
 
 **Defense-in-Depth Security Architecture:**
 
-### macOS (Supported)
+### macOS
 ```
 Host System
   └── Lima VM (Ubuntu)
@@ -136,7 +131,7 @@ Host System
 4. **Resource Limits**: Enforced CPU and memory limits via cgroups
 5. **Execution**: Functions run with no access to host credentials, files, or processes
 
-### Linux (Supported)
+### Linux
 ```
 Host System
   └── nsjail Sandbox with Warm Process Pool
@@ -148,8 +143,6 @@ Host System
 3. **Resource Limits**: Enforced CPU and memory limits via cgroups
 4. **Execution**: Functions run with no access to host credentials, files, or processes
 
-**Note:** Linux provides single-layer isolation (process sandboxing only) compared to macOS's two-layer approach (VM + process). Both are secure for typical use cases, but macOS offers additional defense-in-depth.
-
 ### Windows (Coming Soon)
 
 Planned: WSL2-based backend
@@ -158,7 +151,7 @@ Planned: WSL2-based backend
 
 - **macOS**: QEMU + Lima (install: `brew install qemu lima`)
 - **Linux**: nsjail (see installation instructions above) + Python 3.10+
-- **Windows**: Coming soon 🚧
+- **Windows**: Coming soon
 
 ## Security
 

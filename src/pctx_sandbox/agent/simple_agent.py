@@ -12,7 +12,11 @@ from typing import Any
 import msgpack
 from fastapi import FastAPI, Request, Response
 
-from .pool import WarmSandboxPool
+# Support both relative and absolute imports for standalone execution
+try:
+    from .pool import WarmSandboxPool
+except ImportError:
+    from pool import WarmSandboxPool
 
 app = FastAPI()
 

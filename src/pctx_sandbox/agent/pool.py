@@ -2,12 +2,16 @@
 
 import asyncio
 import base64
+import logging
 import shutil
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
 import cloudpickle
+
+logger = logging.getLogger(__name__)
 
 
 class SandboxWorker:
@@ -47,6 +51,8 @@ class SandboxWorker:
         """Start the worker process."""
         # Get worker script path
         worker_script = Path(__file__).parent / "worker.py"
+        logger.debug(f"Worker {self.worker_id}: script path = {worker_script}")
+        logger.debug(f"Worker {self.worker_id}: script exists = {worker_script.exists()}")
 
         # Calculate resource limits
         memory_bytes = self.memory_mb * 1024 * 1024
@@ -67,6 +73,7 @@ class SandboxWorker:
             str(self.python_bin),
             str(worker_script),
         ]
+        logger.debug(f"Worker {self.worker_id}: starting with command: {' '.join(cmd)}")
 
         # Start the process
         self.process = await asyncio.create_subprocess_exec(
@@ -75,6 +82,7 @@ class SandboxWorker:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+        logger.debug(f"Worker {self.worker_id}: process started with PID {self.process.pid}")
 
     async def execute(
         self, fn_pickle: bytes, args_pickle: bytes, kwargs_pickle: bytes, timeout_sec: int
@@ -97,6 +105,8 @@ class SandboxWorker:
         self.last_used_at = time.time()
 
         try:
+            logger.debug(f"Worker {self.worker_id}: executing job with timeout {timeout_sec}s")
+
             # Prepare job payload
             job_data = {
                 "fn_pickle": fn_pickle,
@@ -106,11 +116,13 @@ class SandboxWorker:
 
             job_bytes = base64.b64encode(cloudpickle.dumps(job_data))
             job_length = len(job_bytes).to_bytes(4, byteorder="big")
+            logger.debug(f"Worker {self.worker_id}: sending job of {len(job_bytes)} bytes")
 
             # Send job to worker
             self.process.stdin.write(job_length)
             self.process.stdin.write(job_bytes)
             await self.process.stdin.drain()
+            logger.debug(f"Worker {self.worker_id}: job sent, waiting for response")
 
             # Read response with timeout
             try:
@@ -147,10 +159,27 @@ class SandboxWorker:
 
         except Exception as e:
             self.is_healthy = False
+            tb = traceback.format_exc()
+            logger.error(f"Worker {self.worker_id} error: {e}")
+            logger.error(f"Traceback:\n{tb}")
+
+            # Try to get stderr from process
+            if self.process and self.process.stderr:
+                try:
+                    stderr_data = await asyncio.wait_for(
+                        self.process.stderr.read(10000), timeout=0.1
+                    )
+                    if stderr_data:
+                        stderr_text = stderr_data.decode("utf-8", errors="replace")
+                        logger.error(f"Worker stderr:\n{stderr_text}")
+                except Exception:
+                    pass
+
             return {
                 "error": True,
-                "error_type": "WorkerError",
+                "error_type": type(e).__name__,
                 "error_message": str(e),
+                "traceback": tb,
             }
         finally:
             self.is_busy = False
@@ -215,7 +244,8 @@ class WarmSandboxPool:
         if venv_path:
             self.python_bin: Path | str = venv_path / "bin" / "python"
         else:
-            self.python_bin = "python3"
+            # Use full path for nsjail compatibility
+            self.python_bin = "/usr/bin/python3"
 
         # Check nsjail availability
         self.nsjail_available = shutil.which("nsjail") is not None
