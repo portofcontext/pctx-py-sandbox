@@ -366,7 +366,7 @@ class WarmSandboxPool:
         # Start background management task
         self._management_task = asyncio.create_task(self._manage_pool())
 
-    async def _create_worker(self, memory_mb: int = 512, cpus: int = 1) -> SandboxWorker:
+    async def _create_worker(self, memory_mb: int = 1024, cpus: int = 1) -> SandboxWorker:
         """Create and start a new worker.
 
         Args:
@@ -419,7 +419,7 @@ class WarmSandboxPool:
         args_pickle: bytes,
         kwargs_pickle: bytes,
         timeout_sec: int = 30,
-        memory_mb: int = 512,
+        memory_mb: int = 1024,
         cpus: int = 1,
     ) -> dict[str, Any]:
         """Execute a job using a worker from the pool.

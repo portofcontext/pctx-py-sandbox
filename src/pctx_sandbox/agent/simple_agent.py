@@ -56,7 +56,7 @@ class SimpleExecutor:
         dependencies: list[str],
         dep_hash: str,
         timeout_sec: int = 30,
-        memory_mb: int = 512,
+        memory_mb: int = 1024,
         cpus: int = 1,
     ) -> dict[str, Any]:
         """Execute a function in an isolated process using warm pool.
@@ -206,7 +206,7 @@ async def execute(request: Request) -> Response:
             dependencies=data.get("dependencies", []),
             dep_hash=data.get("dep_hash", "none"),
             timeout_sec=data.get("timeout_sec", 30),
-            memory_mb=data.get("memory_mb", 512),
+            memory_mb=data.get("memory_mb", 1024),
             cpus=data.get("cpus", 1),
         )
 

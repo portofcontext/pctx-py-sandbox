@@ -92,11 +92,19 @@ class NativeBackend(SandboxBackend):
             raise SandboxStartupError(f"Agent script not found at {agent_script}")
 
         try:
+            # Build command to start agent
+            # PCTX_AGENT_SUDO=1 environment variable can be set to run agent with sudo
+            # This is useful in CI environments like GitHub Actions where root is needed
+            # but sudo is available. In production, run the agent as root directly.
+            cmd = [sys.executable, str(agent_script)]
+            if os.environ.get("PCTX_AGENT_SUDO") == "1":
+                cmd = ["sudo", "-E"] + cmd  # -E preserves environment
+
             # Start agent process with output redirected
             log_file = self.CACHE_DIR / "agent.log"
             with open(log_file, "w") as log:
                 proc = subprocess.Popen(
-                    [sys.executable, str(agent_script)],
+                    cmd,
                     stdout=log,
                     stderr=subprocess.STDOUT,
                     start_new_session=True,  # Detach from parent process

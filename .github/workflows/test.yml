@@ -43,8 +43,10 @@ jobs:
           which nsjail
           nsjail --help | head -10
 
-      - name: Run tests
+      - name: Run tests (agent auto-starts with sudo)
         run: make test-debug
+        env:
+          PCTX_AGENT_SUDO: "1"
 
       - name: Check import works
         run: uv run python -c "from pctx_sandbox import sandbox, sandbox_async; print('Import successful')"
