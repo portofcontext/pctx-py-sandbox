@@ -40,6 +40,7 @@ def sandbox(
     timeout_sec: int = 30,
     cpus: int = 1,
     allow_network: list[str] | None = None,
+    disable_cache: bool = False,
 ) -> Callable[[F], F]:
     """Decorator that runs a function in an isolated sandbox.
 
@@ -49,6 +50,7 @@ def sandbox(
         timeout_sec: Maximum execution time
         cpus: Number of CPUs
         allow_network: List of allowed hostnames (None = no network)
+        disable_cache: If True, bypass dependency cache (forces fresh install)
 
     Returns:
         Decorated function that executes in sandbox
@@ -64,7 +66,16 @@ def sandbox(
     allow_network = allow_network or []
 
     # Hash dependencies for snapshot cache key
-    dep_hash = hashlib.sha256(",".join(sorted(dependencies)).encode()).hexdigest()[:16]
+    # If cache is disabled, add a unique timestamp to force cache miss
+    if disable_cache:
+        import time
+
+        cache_buster = str(time.time())
+        dep_hash = hashlib.sha256(
+            f"{','.join(sorted(dependencies))},{cache_buster}".encode()
+        ).hexdigest()[:16]
+    else:
+        dep_hash = hashlib.sha256(",".join(sorted(dependencies)).encode()).hexdigest()[:16]
 
     def decorator(fn: F) -> F:
         # Check if function is async
@@ -173,6 +184,7 @@ def sandbox_async(
     timeout_sec: int = 30,
     cpus: int = 1,
     allow_network: list[str] | None = None,
+    disable_cache: bool = False,
 ) -> Callable[[F], F]:
     """Async version of @sandbox decorator.
 
@@ -182,6 +194,7 @@ def sandbox_async(
         timeout_sec: Maximum execution time
         cpus: Number of vCPUs
         allow_network: List of allowed hostnames
+        disable_cache: If True, bypass dependency cache (forces fresh install)
 
     Returns:
         Decorated async function that executes in sandbox
@@ -189,7 +202,17 @@ def sandbox_async(
     dependencies = dependencies or []
     allow_network = allow_network or []
 
-    dep_hash = hashlib.sha256(",".join(sorted(dependencies)).encode()).hexdigest()[:16]
+    # Hash dependencies for snapshot cache key
+    # If cache is disabled, add a unique timestamp to force cache miss
+    if disable_cache:
+        import time
+
+        cache_buster = str(time.time())
+        dep_hash = hashlib.sha256(
+            f"{','.join(sorted(dependencies))},{cache_buster}".encode()
+        ).hexdigest()[:16]
+    else:
+        dep_hash = hashlib.sha256(",".join(sorted(dependencies)).encode()).hexdigest()[:16]
 
     def decorator(fn: F) -> F:
         @functools.wraps(fn)

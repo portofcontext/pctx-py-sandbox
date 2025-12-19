@@ -1,11 +1,10 @@
-"""Simple sandbox agent - runs in Lima VM, executes functions in isolated processes.
+"""Simple sandbox agent - runs in Podman container, executes functions in isolated processes.
 
-This agent provides sandboxing using nsjail with warm process pools for fast execution.
+This agent provides sandboxing using Podman containers with warm process pools for fast execution.
 """
 
 import asyncio
 import hashlib
-import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,7 +22,7 @@ app = FastAPI()
 
 
 class SimpleExecutor:
-    """Executes functions in isolated Python processes using warm nsjail pools."""
+    """Executes functions in isolated Python processes using warm pools inside Podman container."""
 
     def __init__(
         self,
@@ -43,9 +42,6 @@ class SimpleExecutor:
         # Pools per dependency hash
         self.pools: dict[str, WarmSandboxPool] = {}
         self.pool_size = pool_size
-
-        # Detect available sandboxing tools
-        self.use_nsjail = shutil.which("nsjail") is not None
         self.platform = sys.platform
 
     async def execute(
@@ -81,18 +77,14 @@ class SimpleExecutor:
         pool = await self._ensure_pool(dep_hash, venv_path)
 
         # Execute using the warm pool
-        if pool:
-            return await pool.execute(
-                fn_pickle=fn_pickle,
-                args_pickle=args_pickle,
-                kwargs_pickle=kwargs_pickle,
-                timeout_sec=timeout_sec,
-                memory_mb=memory_mb,
-                cpus=cpus,
-            )
-
-        # Fallback: no nsjail available - fail hard
-        raise RuntimeError("nsjail not available - cannot execute sandboxed code")
+        return await pool.execute(
+            fn_pickle=fn_pickle,
+            args_pickle=args_pickle,
+            kwargs_pickle=kwargs_pickle,
+            timeout_sec=timeout_sec,
+            memory_mb=memory_mb,
+            cpus=cpus,
+        )
 
     async def _ensure_venv(self, dep_hash: str, dependencies: list[str]) -> Path | None:
         """Ensure virtual environment with dependencies exists.
@@ -128,7 +120,6 @@ class SimpleExecutor:
         await proc.wait()
 
         # Install dependencies
-        # Note: Cannot use firejail here as it would isolate the venv from the cache
         # Worker needs: cloudpickle (for serialization), fastapi+uvicorn (for HTTP server)
         pip_bin = venv_path / "bin" / "pip"
         proc = await asyncio.create_subprocess_exec(
@@ -147,7 +138,7 @@ class SimpleExecutor:
         self.dep_envs[dep_hash] = venv_path
         return venv_path
 
-    async def _ensure_pool(self, dep_hash: str, venv_path: Path | None) -> WarmSandboxPool | None:
+    async def _ensure_pool(self, dep_hash: str, venv_path: Path | None) -> WarmSandboxPool:
         """Ensure a warm pool exists for this dependency set.
 
         Args:
@@ -155,11 +146,8 @@ class SimpleExecutor:
             venv_path: Path to venv or None
 
         Returns:
-            Pool or None if nsjail not available
+            Pool instance
         """
-        if not self.use_nsjail:
-            return None
-
         if dep_hash in self.pools:
             return self.pools[dep_hash]
 
@@ -228,7 +216,7 @@ def _compute_agent_version() -> str:
     This allows detecting when agent code has changed and needs reloading.
     """
     agent_dir = Path(__file__).parent
-    files_to_hash = ["simple_agent.py", "pool.py", "worker.py", "nsjail.cfg"]
+    files_to_hash = ["simple_agent.py", "pool.py", "worker.py"]
 
     hasher = hashlib.sha256()
     for filename in sorted(files_to_hash):  # Sort for consistency
@@ -260,7 +248,6 @@ async def status() -> dict[str, Any]:
     return {
         "cached_envs": list(executor.dep_envs.keys()),
         "cache_dir": str(executor.cache_dir),
-        "nsjail_available": executor.use_nsjail,
         "pools": {dep_hash: pool.stats() for dep_hash, pool in executor.pools.items()},
     }
 
@@ -277,11 +264,9 @@ if __name__ == "__main__":
     )
     logger = logging.getLogger(__name__)
 
-    logger.info("Starting sandbox agent...")
+    logger.info("Starting sandbox agent in Podman container...")
     logger.info(f"Python: {sys.version}")
     logger.info(f"Platform: {sys.platform}")
-    logger.info(f"nsjail available: {shutil.which('nsjail') is not None}")
-    logger.info(f"nsjail path: {shutil.which('nsjail')}")
     logger.info(f"Working directory: {os.getcwd()}")
 
     try:

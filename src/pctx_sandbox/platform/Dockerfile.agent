@@ -1,0 +1,29 @@
+FROM python:3.10-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Install Python dependencies for agent
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    cloudpickle \
+    msgpack \
+    httpx
+
+# Copy agent files
+COPY agent/ /app/
+
+# Create cache directory
+RUN mkdir -p /tmp/pctx-cache
+
+# Expose agent port
+EXPOSE 9000
+
+# Run agent
+CMD ["python", "simple_agent.py"]

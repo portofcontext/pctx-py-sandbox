@@ -1,20 +1,20 @@
-.PHONY: help install format lint check test test-unit test-integration test-security test-all type-check clean build vm-reset vm-stop vm-status
+.PHONY: help install format lint check test test-unit test-integration test-security test-all type-check clean build vm-reset vm-stop vm-status benchmark
 
 help:
 	@echo "Available commands:"
-	@echo "  make install          - Install dependencies with uv"
-	@echo "  make format           - Format code with ruff"
-	@echo "  make lint             - Lint code with ruff"
-	@echo "  make check            - Run format check and lint"
-	@echo "  make test             - Run unit tests"
-	@echo "  make test-unit        - Run unit tests only"
-	@echo "  make test-integration - Run integration tests"
-	@echo "  make test-security    - Run security tests"
-	@echo "  make test-all         - Run all tests"
-	@echo "  make type-check       - Run type checking with ty"
-	@echo "  make clean            - Clean build artifacts"
-	@echo "  make build            - Build package"
-	@echo "  make vm-kill-mac      - Delete and the Lima VM (macOS)"
+	@echo "  make install            - Install dependencies with uv"
+	@echo "  make format             - Format code with ruff"
+	@echo "  make lint               - Lint code with ruff"
+	@echo "  make check              - Run format check and lint"
+	@echo "  make test               - Run unit tests"
+	@echo "  make test-unit          - Run unit tests only"
+	@echo "  make test-integration   - Run integration tests"
+	@echo "  make test-security      - Run security tests"
+	@echo "  make test-all           - Run all tests"
+	@echo "  make type-check         - Run type checking with ty"
+	@echo "  make benchmark          - Run performance benchmarks"
+	@echo "  make clean              - Clean build artifacts"
+	@echo "  make build              - Build package"
 
 install:
 	uv sync --all-extras
@@ -59,6 +59,5 @@ clean:
 build:
 	uv build
 
-vm-kill-mac:
-	limactl stop pctx-sandbox
-	limactl delete pctx-sandbox
+benchmark:
+	uv run python benchmarks/run_benchmarks.py

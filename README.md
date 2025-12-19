@@ -12,43 +12,37 @@
 
 
 
-A Python decorator that executes untrusted code in isolated sandboxes with defense-in-depth security, designed for safe execution of LLM-generated code on local machines.
+A Python decorator that executes untrusted code in isolated Podman containers, designed for safe execution of LLM-generated code on local machines.
 
 ## Installation
 
-### macOS
+### Prerequisites
 
-Install Lima and QEMU (required for VM isolation):
+Install Podman (required for container isolation):
+
+**macOS**
 ```bash
-brew install qemu lima
+brew install podman
+podman machine init
+podman machine start
 ```
 
-Install pctx-sandbox:
+**Linux (Ubuntu/Debian)**
 ```bash
-pip install pctx-sandbox
+sudo apt-get update
+sudo apt-get install podman
 ```
 
-### Linux
-
-Install nsjail (required for process sandboxing):
-
-**Ubuntu/Debian**
+**Linux (Fedora/RHEL)**
 ```bash
-# Use the installation script
-curl -fsSL https://raw.githubusercontent.com/portofcontext/python-sandbox/main/scripts/install-linux-deps.sh | bash
+sudo dnf install podman
 ```
-or have a look at `scripts/install-linux-deps.sh` to install manually
 
-**Other distributions:** See [nsjail installation guide](https://github.com/google/nsjail)
+### Install pctx-sandbox
 
-Install pctx-sandbox:
 ```bash
 pip install pctx-sandbox
 ```
-
-### Windows
-
-Windows support is coming soon.
 
 ## Quick Start
 
@@ -61,7 +55,7 @@ def process_data(data: list[dict]) -> dict:
     df = pd.DataFrame(data)
     return {"rows": len(df), "columns": list(df.columns)}
 
-# Just call it normally - runs in isolated microVM
+# Just call it normally - runs in isolated Podman container
 result = process_data([{"name": "Alice", "age": 30}])
 ```
 
@@ -96,101 +90,80 @@ The `@sandbox` decorator handles dependencies automatically:
        return x ** 2
    ```
 
-## VM Management (macOS)
+## Container Management
 
-The Lima VM auto-starts on first use. To manage it manually:
+The Podman container auto-starts on first use. To manage it manually:
 
 ```bash
-limactl list                         # Check VM status
-limactl delete --force pctx-sandbox  # Delete for fresh start
-limactl stop pctx-sandbox            # Stop the VM
+podman ps                                    # Check container status
+podman stop pctx-sandbox-agent              # Stop the container
+podman rm -f pctx-sandbox-agent             # Remove container
+podman rmi -f pctx-sandbox-agent            # Remove image
 ```
 
 ## Development
 
-
+```bash
 # See all available commands
 make help
 ```
 
 ## How It Works
 
-**Defense-in-Depth Security Architecture:**
+**Container-Based Security Architecture:**
 
-### macOS
 ```
 Host System
-  └── Lima VM (Ubuntu)
-      └── nsjail Sandbox with Warm Process Pool
+  └── Podman Container (Rootless)
+      └── Warm Process Pool
           └── Isolated Python Workers
 ```
 
-1. **VM Isolation (Lima)**: Isolated filesystem, environment, and resources
-2. **Process Sandboxing (nsjail)**: Linux namespaces, cgroups, seccomp-bpf syscall filtering
-3. **Warm Process Pool**: Pre-initialized workers for fast execution (no cold-start overhead)
-4. **Resource Limits**: Enforced CPU and memory limits via cgroups
-5. **Execution**: Functions run with no access to host credentials, files, or processes
-
-### Linux
-```
-Host System
-  └── nsjail Sandbox with Warm Process Pool
-      └── Isolated Python Workers
-```
-
-1. **Process Sandboxing (nsjail)**: Linux namespaces, cgroups, seccomp-bpf syscall filtering
+1. **Container Isolation (Podman)**: Rootless containers with isolated filesystem, environment, and resources
 2. **Warm Process Pool**: Pre-initialized workers for fast execution (no cold-start overhead)
 3. **Resource Limits**: Enforced CPU and memory limits via cgroups
 4. **Execution**: Functions run with no access to host credentials, files, or processes
 
-### Windows (Coming Soon)
-
-Planned: WSL2-based backend
-
 ## Requirements
 
-- **macOS**: QEMU + Lima (install: `brew install qemu lima`)
-- **Linux**: nsjail (see installation instructions above) + Python 3.10+
-- **Windows**: Coming soon
+- **Podman** (see installation instructions above)
+- **Python 3.10+**
 
 ## Security
 
-### Why nsjail Provides Strong Isolation
+### Why Podman Provides Strong Isolation
 
-[nsjail](https://github.com/google/nsjail) is a **lightweight process isolation tool developed by Google** that provides security comparable to Docker containers, but with better performance (20ms subprocess creation vs Docker's slower container startup).
+[Podman](https://podman.io/) is a **daemonless container engine** that provides OCI-standard container isolation with rootless execution by default.
 
 **Core Security Mechanisms:**
 
-1. **Linux Namespaces** - Complete process isolation using 7 namespace types:
-   - **PID namespace**: Sandboxed processes cannot see host processes
+1. **OCI Container Isolation** - Complete process isolation using:
+   - **PID namespace**: Containerized processes cannot see host processes
    - **Mount namespace**: Isolated filesystem, cannot access host files
    - **Network namespace**: Network isolation (configurable)
-   - **User namespace**: Root in sandbox maps to unprivileged user on host
+   - **User namespace**: Rootless containers map to unprivileged user on host
    - **IPC namespace**: No shared memory with host processes
    - **UTS namespace**: Separate hostname
    - **Cgroup namespace**: Isolated cgroup view
 
-2. **Seccomp-BPF Syscall Filtering** - Blocks dangerous system calls like `ptrace`, `mount`, `reboot`, etc. using Kafel BPF language for fine-grained control
+2. **Rootless by Default** - Runs entirely as non-root user, no daemon needed
 
 3. **Cgroups v2** - Enforces resource limits:
    - CPU time limits
    - Memory limits
    - Process count limits
-   - Network bandwidth control
+   - I/O bandwidth control
 
-4. **Capability Dropping** - Removes Linux capabilities (even from root user in sandbox)
+4. **SELinux/AppArmor Integration** - Additional security layers where available
 
-5. **Read-only Filesystem** - Mounts can be configured as read-only to prevent tampering
+5. **Read-only Filesystem** - Container filesystem isolation prevents host tampering
 
 **Proven in Production:**
 
-- Used by Google for [kCTF](https://google.github.io/kctf/introduction.html) (Kubernetes CTF infrastructure)
-- Powers isolation in [Fly.io's sandboxing infrastructure](https://fly.io/blog/sandboxing-and-workload-isolation/)
-- Standard tool for CTF (Capture The Flag) security competitions
-
-**Defense-in-Depth on macOS:**
-
-On macOS, pctx-sandbox adds an additional VM layer (Lima) because macOS lacks Linux namespaces.
+- Used by Red Hat, SUSE, and major cloud providers
+- OCI-standard containers (same security model as Docker)
+- Rootless execution eliminates entire classes of vulnerabilities
+- No daemon = smaller attack surface
 
 ### Security Validation
 
@@ -213,16 +186,16 @@ uv run pytest tests/security/ -v
 
 **Not a Security Boundary (Same as Docker):**
 
-Like Docker containers, nsjail provides [strong isolation but not a perfect security boundary](https://www.helpnetsecurity.com/2025/05/20/containers-namespaces-security/). Linux namespaces were designed for resource partitioning, not security isolation. While they provide excellent defense-in-depth:
+Like all container solutions, Podman provides [strong isolation but not a perfect security boundary](https://www.helpnetsecurity.com/2025/05/20/containers-namespaces-security/). Linux namespaces were designed for resource partitioning, not security isolation. While they provide excellent defense-in-depth:
 
-- All sandboxed processes share the same Linux kernel
+- All containerized processes share the same Linux kernel
 - Kernel vulnerabilities could potentially allow escapes
 - Side-channel attacks (Spectre, Meltdown) may leak information
 
 **Best Practices:**
 - Keep your kernel updated with security patches
 - Use on systems with recent kernels (5.10+) that have namespace security improvements
-- Consider the VM-based approach (macOS) for maximum isolation of highly untrusted code
+- Rootless Podman provides additional security layers
 - Monitor for kernel CVEs related to namespaces and containers
 
 ## License

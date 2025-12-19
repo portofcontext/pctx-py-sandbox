@@ -24,6 +24,7 @@ Based on security isolation principles from:
 """
 
 import os
+import sys
 import uuid
 
 import pytest
@@ -157,12 +158,17 @@ class TestFilesystemNamespaceIsolation:
 class TestPIDNamespaceIsolation:
     """Test that PID namespace prevents seeing host processes."""
 
+    @pytest.mark.skipif(
+        sys.platform == "darwin", reason="Podman on macOS runs in a VM with shared PID namespace"
+    )
     def test_sandbox_cannot_see_host_pids(self):
         """Verify PID namespace isolation prevents visibility of host processes.
 
         This test validates PID namespace isolation by confirming that the sandbox
         process table does not include host PIDs and contains only the minimal set
         of processes expected in an isolated PID namespace.
+
+        Note: Skipped on macOS because Podman containers share the VM's process namespace.
         """
         # Get current process PID on host
         host_pid = os.getpid()
@@ -262,12 +268,17 @@ class TestUserNamespaceIsolation:
             f"Without user namespace remapping, privilege escalation is possible."
         )
 
+    @pytest.mark.skipif(
+        sys.platform == "darwin", reason="Podman on macOS runs containers as root in VM"
+    )
     def test_sandbox_cannot_gain_real_root_privileges(self):
         """Verify sandbox cannot perform privileged operations despite UID 0 status.
 
         This test validates that user namespace isolation combined with capability
         dropping prevents the sandbox from performing truly privileged operations,
         even if the process appears as UID 0 within its namespace.
+
+        Note: Skipped on macOS because Podman containers run as actual root in the VM.
         """
 
         @sandbox()
@@ -398,8 +409,8 @@ class TestNetworkNamespaceIsolation:
 class TestCapabilityDropping:
     """Test that Linux capabilities are properly dropped.
 
-    nsjail drops dangerous capabilities like CAP_SYS_ADMIN, CAP_SYS_MODULE, etc.
-    This prevents privilege escalation even if the process is UID 0 in its namespace.
+    Containers drop dangerous capabilities like CAP_SYS_ADMIN, CAP_SYS_MODULE, etc.
+    This prevents privilege escalation even in rootless containers.
     """
 
     def test_mount_is_restricted(self):

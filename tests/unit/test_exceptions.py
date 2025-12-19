@@ -4,8 +4,8 @@ import pytest
 
 from pctx_sandbox.exceptions import (
     DependencyInstallError,
-    LimaNotInstalledError,
     PlatformNotSupportedError,
+    PodmanNotInstalledError,
     SandboxError,
     SandboxExecutionError,
     SandboxStartupError,
@@ -129,15 +129,15 @@ class TestPlatformNotSupportedError:
         assert "not supported" in str(exc_info.value)
 
 
-class TestLimaNotInstalledError:
-    """Tests for LimaNotInstalledError."""
+class TestPodmanNotInstalledError:
+    """Tests for PodmanNotInstalledError."""
 
     def test_inherits_from_platform_not_supported(self):
-        """LimaNotInstalledError should inherit from PlatformNotSupportedError."""
-        assert issubclass(LimaNotInstalledError, PlatformNotSupportedError)
+        """PodmanNotInstalledError should inherit from PlatformNotSupportedError."""
+        assert issubclass(PodmanNotInstalledError, PlatformNotSupportedError)
 
     def test_can_be_raised(self):
-        """LimaNotInstalledError should be raisable."""
-        with pytest.raises(LimaNotInstalledError) as exc_info:
-            raise LimaNotInstalledError("Lima not installed")
-        assert "Lima" in str(exc_info.value)
+        """PodmanNotInstalledError should be raisable."""
+        with pytest.raises(PodmanNotInstalledError) as exc_info:
+            raise PodmanNotInstalledError("Podman not installed")
+        assert "Podman" in str(exc_info.value)

@@ -47,7 +47,7 @@ class TestFilesystemIsolation:
         result = try_read_ssh()
 
         # SSH directory should not exist in sandbox
-        # (Lima VM has its own ~/.ssh, but not the host's keys)
+        # (Container has its own isolated ~/.ssh, but not the host's keys)
         if result["ssh_dir_exists"]:
             # If ~/.ssh exists, verify it doesn't contain host keys
             assert result["id_rsa_exists"] is False, "Host SSH keys should not be accessible"
@@ -241,8 +241,8 @@ class TestNetworkIsolation:
 
         check_network()
 
-        # Note: Current configuration allows network access (clone_newnet: false)
-        # Full network isolation requires setting clone_newnet: true in nsjail.cfg
+        # Note: Current configuration allows network access
+        # Full network isolation can be configured via Podman --network flag
 
     def test_cannot_resolve_dns(self):
         """Verify DNS resolution is blocked."""
@@ -259,7 +259,7 @@ class TestNetworkIsolation:
 
         try_dns()
 
-        # Note: Current configuration allows DNS resolution (clone_newnet: false)
+        # Note: Current configuration allows DNS resolution
 
     def test_cannot_make_http_request(self):
         """Verify HTTP requests are blocked."""
@@ -276,7 +276,7 @@ class TestNetworkIsolation:
 
         try_http()
 
-        # Note: Current configuration allows HTTP requests (clone_newnet: false)
+        # Note: Current configuration allows HTTP requests
 
 
 @pytest.mark.requires_sandbox_agent
@@ -349,11 +349,10 @@ class TestPrivilegeIsolation:
     """Test that the sandbox cannot escalate privileges."""
 
     def test_cannot_become_root(self):
-        """Verify sandbox is isolated via namespaces.
+        """Verify sandbox is isolated via container namespaces.
 
-        Note: Workers run as root INSIDE their isolated namespace, but this doesn't
-        grant any privileges on the host system. The test verifies they can't break
-        out of namespace isolation to affect the host.
+        Note: Rootless Podman containers map UIDs safely.
+        The test verifies they can't affect the host system.
         """
 
         @sandbox()
@@ -361,7 +360,7 @@ class TestPrivilegeIsolation:
             import os
 
             # Inside the sandbox, we ARE root (UID 0) - this is expected
-            # due to how nsjail namespaces work without user namespace mapping.
+            # due to how rootless containers work with user namespace mapping.
             # The key is that this root is ISOLATED and can't affect the host.
             uid = os.getuid()
 

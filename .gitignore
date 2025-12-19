@@ -21,3 +21,6 @@ pctx-py/docs/_templates/
 # IDE / AI Stuff
 .claude/
 CLAUDE.md
+
+# Benchmark results
+benchmark_results/

@@ -185,13 +185,13 @@ class TestSandboxDecoratorIntegration:
 
         @sandbox()
         def check_filesystem() -> dict[str, str]:
-            # Check that we're in Lima VM, not on host
+            # Check that we're in Container, not on host
             import subprocess
 
             # Get username
             user = os.environ.get("USER", "unknown")
 
-            # Check hostname (Lima VM has different hostname)
+            # Check hostname (Container has different hostname)
             try:
                 hostname = subprocess.check_output(["hostname"], text=True).strip()
             except Exception:
@@ -201,7 +201,7 @@ class TestSandboxDecoratorIntegration:
 
         result = check_filesystem()
 
-        # Lima VM user is different from host user
+        # Container user is different from host user
         import getpass
 
         host_user = getpass.getuser()
@@ -210,7 +210,7 @@ class TestSandboxDecoratorIntegration:
         host_hostname = socket.gethostname()
 
         # Verify we're NOT on the host system
-        # (Lima VM will have different user/hostname)
+        # (Container will have different user/hostname)
         assert result["user"] != host_user or result["hostname"] != host_hostname, (
             f"Sandbox should run in VM, not on host. Got user={result['user']}, hostname={result['hostname']}"
         )

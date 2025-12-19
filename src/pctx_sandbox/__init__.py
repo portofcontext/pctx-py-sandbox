@@ -3,8 +3,8 @@
 from .decorator import sandbox, sandbox_async
 from .exceptions import (
     DependencyInstallError,
-    LimaNotInstalledError,
     PlatformNotSupportedError,
+    PodmanNotInstalledError,
     SandboxError,
     SandboxExecutionError,
     SandboxStartupError,
@@ -23,5 +23,5 @@ __all__ = [
     "SerializationError",
     "DependencyInstallError",
     "PlatformNotSupportedError",
-    "LimaNotInstalledError",
+    "PodmanNotInstalledError",
 ]

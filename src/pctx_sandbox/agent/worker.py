@@ -1,4 +1,4 @@
-"""Sandbox worker - runs inside nsjail, executes code via HTTP protocol."""
+"""Sandbox worker - runs inside Podman container, executes code via HTTP protocol."""
 
 import asyncio
 import base64

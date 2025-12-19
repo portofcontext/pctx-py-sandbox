@@ -58,13 +58,7 @@ class PlatformNotSupportedError(SandboxError):
     pass
 
 
-class LimaNotInstalledError(PlatformNotSupportedError):
-    """Lima not installed on macOS."""
-
-    pass
-
-
-class NsjailNotInstalledError(PlatformNotSupportedError):
-    """nsjail not installed on Linux."""
+class PodmanNotInstalledError(PlatformNotSupportedError):
+    """Podman not installed."""
 
     pass

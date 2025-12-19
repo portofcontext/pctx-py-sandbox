@@ -68,17 +68,6 @@ def ensure_pool_health(request):
 
 
 @pytest.fixture
-def mock_lima_output():
-    """Mock output from limactl list --json."""
-    return {
-        "running": '[{"name":"pctx-sandbox","status":"Running"}]',
-        "stopped": '[{"name":"pctx-sandbox","status":"Stopped"}]',
-        "empty": "[]",
-        "other_vm": '[{"name":"other-vm","status":"Running"}]',
-    }
-
-
-@pytest.fixture
 def sample_function():
     """A sample function to be sandboxed."""
 

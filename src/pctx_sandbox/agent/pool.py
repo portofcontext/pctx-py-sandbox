@@ -1,9 +1,8 @@
-"""Warm sandbox pool using nsjail for process isolation."""
+"""Warm sandbox pool for process isolation inside Podman container."""
 
 import asyncio
 import base64
 import logging
-import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -14,13 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class SandboxWorker:
-    """A single warm worker process running inside nsjail."""
+    """A single warm worker process (container provides isolation)."""
 
     def __init__(
         self,
         worker_id: int,
         python_bin: Path | str,
-        nsjail_config: Path,
         memory_mb: int = 512,
         cpus: int = 1,
     ) -> None:
@@ -29,13 +27,11 @@ class SandboxWorker:
         Args:
             worker_id: Unique worker identifier
             python_bin: Path to Python interpreter
-            nsjail_config: Path to nsjail config file
-            memory_mb: Memory limit in MB
-            cpus: CPU count
+            memory_mb: Memory limit in MB (unused, container-level limit applies)
+            cpus: CPU count (unused, container-level limit applies)
         """
         self.worker_id = worker_id
         self.python_bin = python_bin
-        self.nsjail_config = nsjail_config
         self.memory_mb = memory_mb
         self.cpus = cpus
 
@@ -51,35 +47,17 @@ class SandboxWorker:
         """Start the worker process and wait for it to be ready.
 
         This method:
-        1. Spawns nsjail process running worker.py HTTP server
+        1. Spawns Python process running worker.py HTTP server
         2. Waits for worker to write "READY:PORT" to stdout
         3. Verifies worker is healthy with HTTP health check
         4. Returns only when worker is definitely ready to accept jobs
-
-        This eliminates the race condition where workers were marked ready
-        before they actually finished initializing.
         """
         # Get worker script path
         worker_script = Path(__file__).parent / "worker.py"
         logger.debug(f"Worker {self.worker_id}: script path = {worker_script}")
         logger.debug(f"Worker {self.worker_id}: script exists = {worker_script.exists()}")
 
-        # Calculate resource limits
-        memory_bytes = self.memory_mb * 1024 * 1024
-        cpu_ms_per_sec = self.cpus * 1000  # e.g., 1 CPU = 1000ms/sec
-
-        # Build nsjail command
         cmd = [
-            "nsjail",
-            "--config",
-            str(self.nsjail_config),
-            "--cgroup_mem_max",
-            str(memory_bytes),
-            "--cgroup_cpu_ms_per_sec",
-            str(cpu_ms_per_sec),
-            "--rlimit_as",
-            str(memory_bytes),
-            "--",
             str(self.python_bin),
             str(worker_script),
         ]
@@ -317,25 +295,20 @@ class WarmSandboxPool:
 
         self.workers: list[SandboxWorker] = []
         self.next_worker_id = 0
-        self.nsjail_config = Path(__file__).parent / "nsjail.cfg"
 
         # Determine Python binary
         if venv_path:
             self.python_bin: Path | str = venv_path / "bin" / "python"
         else:
-            # Use full path for nsjail compatibility
-            self.python_bin = "/usr/bin/python3"
+            import sys
 
-        # Check nsjail availability
-        self.nsjail_available = shutil.which("nsjail") is not None
+            self.python_bin = sys.executable
 
         # Background task for pool management
         self._management_task: asyncio.Task | None = None
 
     async def start(self) -> None:
         """Start the pool and warm up workers."""
-        if not self.nsjail_available:
-            raise RuntimeError("nsjail not found - cannot start pool")
 
         # Start initial workers - some may fail, keep trying until we have at least one
         healthy_workers = 0
@@ -379,7 +352,6 @@ class WarmSandboxPool:
         worker = SandboxWorker(
             worker_id=self.next_worker_id,
             python_bin=self.python_bin,
-            nsjail_config=self.nsjail_config,
             memory_mb=memory_mb,
             cpus=cpus,
         )
