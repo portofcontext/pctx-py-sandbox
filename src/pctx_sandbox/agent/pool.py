@@ -5,11 +5,10 @@ import base64
 import logging
 import shutil
 import time
-import traceback
 from pathlib import Path
 from typing import Any
 
-import cloudpickle
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +40,7 @@ class SandboxWorker:
         self.cpus = cpus
 
         self.process: asyncio.subprocess.Process | None = None
+        self.worker_url: str | None = None  # HTTP URL of worker (e.g., http://127.0.0.1:12345)
         self.is_healthy = True
         self.is_busy = False
         self.jobs_executed = 0
@@ -48,7 +48,17 @@ class SandboxWorker:
         self.last_used_at = time.time()
 
     async def start(self) -> None:
-        """Start the worker process."""
+        """Start the worker process and wait for it to be ready.
+
+        This method:
+        1. Spawns nsjail process running worker.py HTTP server
+        2. Waits for worker to write "READY:PORT" to stdout
+        3. Verifies worker is healthy with HTTP health check
+        4. Returns only when worker is definitely ready to accept jobs
+
+        This eliminates the race condition where workers were marked ready
+        before they actually finished initializing.
+        """
         # Get worker script path
         worker_script = Path(__file__).parent / "worker.py"
         logger.debug(f"Worker {self.worker_id}: script path = {worker_script}")
@@ -56,7 +66,7 @@ class SandboxWorker:
 
         # Calculate resource limits
         memory_bytes = self.memory_mb * 1024 * 1024
-        cpu_ms_per_sec = self.cpus * 1000
+        cpu_ms_per_sec = self.cpus * 1000  # e.g., 1 CPU = 1000ms/sec
 
         # Build nsjail command
         cmd = [
@@ -68,7 +78,7 @@ class SandboxWorker:
             "--cgroup_cpu_ms_per_sec",
             str(cpu_ms_per_sec),
             "--rlimit_as",
-            str(self.memory_mb),
+            str(memory_bytes),
             "--",
             str(self.python_bin),
             str(worker_script),
@@ -78,68 +88,83 @@ class SandboxWorker:
         # Start the process
         self.process = await asyncio.create_subprocess_exec(
             *cmd,
-            stdin=asyncio.subprocess.PIPE,
+            stdin=asyncio.subprocess.DEVNULL,  # Worker doesn't need stdin for HTTP mode
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         logger.debug(f"Worker {self.worker_id}: process started with PID {self.process.pid}")
 
-        # Health check: send a simple ping job to verify worker is responsive
+        # Wait for worker to signal readiness with port number
+        # This blocks until worker has actually started HTTP server
         try:
-            await self._health_check()
-            logger.debug(f"Worker {self.worker_id}: health check passed")
-        except Exception as e:
-            logger.error(f"Worker {self.worker_id}: health check failed: {e}")
-            self.is_healthy = False
+            ready_line = await asyncio.wait_for(
+                self.process.stdout.readline(),
+                timeout=10.0,  # Generous timeout for Python startup
+            )
+        except asyncio.TimeoutError as e:
             await self.shutdown()
-            raise RuntimeError(f"Worker {self.worker_id} failed health check: {e}")
+            raise RuntimeError(
+                f"Worker {self.worker_id} did not signal readiness within 10 seconds"
+            ) from e
 
-    async def _health_check(self) -> None:
-        """Send a ping job to verify worker is responsive."""
-        if not self.process or not self.process.stdin or not self.process.stdout:
-            raise RuntimeError("Worker process not started")
+        # Parse "READY:PORT\n"
+        ready_text = ready_line.decode().strip()
+        if not ready_text.startswith("READY:"):
+            # Read stderr to understand what went wrong
+            stderr_output = ""
+            if self.process and self.process.stderr:
+                try:
+                    # Give more time for error output to be written
+                    stderr_bytes = await asyncio.wait_for(
+                        self.process.stderr.read(10000), timeout=5.0
+                    )
+                    stderr_output = stderr_bytes.decode()
+                except asyncio.TimeoutError:
+                    stderr_output = "(stderr read timed out)"
+                except Exception as e:
+                    logger.warning(f"Failed to read stderr: {e}")
+                    stderr_output = f"(failed to read stderr: {e})"
 
-        # Create a simple ping function
-        def ping() -> str:
-            return "pong"
-
-        # Serialize it
-        job_data = {
-            "fn_pickle": cloudpickle.dumps(ping),
-            "args_pickle": cloudpickle.dumps(()),
-            "kwargs_pickle": cloudpickle.dumps({}),
-        }
-
-        job_bytes = base64.b64encode(cloudpickle.dumps(job_data))
-        job_length = len(job_bytes).to_bytes(4, byteorder="big")
-
-        # Send with timeout
-        try:
-            self.process.stdin.write(job_length)
-            self.process.stdin.write(job_bytes)
-            await asyncio.wait_for(self.process.stdin.drain(), timeout=2.0)
-
-            # Read response with timeout
-            length_bytes = await asyncio.wait_for(self.process.stdout.read(4), timeout=2.0)
-            if not length_bytes or len(length_bytes) < 4:
-                raise RuntimeError("Worker did not respond to health check")
-
-            result_length = int.from_bytes(length_bytes, byteorder="big")
-            result_bytes = await asyncio.wait_for(
-                self.process.stdout.read(result_length), timeout=2.0
+            await self.shutdown()
+            raise RuntimeError(
+                f"Worker {self.worker_id} sent invalid ready signal: {ready_text}\n"
+                f"stderr: {stderr_output}"
             )
 
-            result = cloudpickle.loads(base64.b64decode(result_bytes))
-            if result.get("error"):
-                raise RuntimeError(f"Health check returned error: {result}")
+        port = int(ready_text.split(":")[1])
+        self.worker_url = f"http://127.0.0.1:{port}"
+        logger.debug(f"Worker {self.worker_id}: ready on {self.worker_url}")
 
-        except asyncio.TimeoutError:
-            raise RuntimeError("Worker health check timed out")
+        # Verify with health check (with retries for robustness)
+        max_health_retries = 3
+        for attempt in range(max_health_retries):
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    response = await client.get(f"{self.worker_url}/health")
+                    if response.status_code != 200:
+                        raise RuntimeError(
+                            f"Health check failed with status {response.status_code}"
+                        )
+                    logger.debug(f"Worker {self.worker_id}: health check passed")
+                    break  # Success!
+            except httpx.ConnectError as e:
+                if attempt < max_health_retries - 1:
+                    # Exponential backoff: 0.1s, 0.2s
+                    await asyncio.sleep(0.1 * (2**attempt))
+                    continue
+                # Final attempt failed
+                await self.shutdown()
+                raise RuntimeError(
+                    f"Worker {self.worker_id} health check failed after {max_health_retries} attempts: {e}"
+                ) from e
+            except Exception as e:
+                await self.shutdown()
+                raise RuntimeError(f"Worker {self.worker_id} health check failed: {e}") from e
 
     async def execute(
         self, fn_pickle: bytes, args_pickle: bytes, kwargs_pickle: bytes, timeout_sec: int
     ) -> dict[str, Any]:
-        """Execute a job on this worker.
+        """Execute a job on this worker via HTTP.
 
         Args:
             fn_pickle: Pickled function
@@ -150,7 +175,7 @@ class SandboxWorker:
         Returns:
             Result dictionary
         """
-        if not self.process or not self.process.stdin or not self.process.stdout:
+        if not self.worker_url:
             raise RuntimeError(f"Worker {self.worker_id} not started")
 
         self.is_busy = True
@@ -159,69 +184,65 @@ class SandboxWorker:
         try:
             logger.debug(f"Worker {self.worker_id}: executing job with timeout {timeout_sec}s")
 
-            # Prepare job payload
-            job_data = {
-                "fn_pickle": fn_pickle,
-                "args_pickle": args_pickle,
-                "kwargs_pickle": kwargs_pickle,
+            # Prepare HTTP request payload
+            payload = {
+                "fn_pickle": base64.b64encode(fn_pickle).decode("ascii"),
+                "args_pickle": base64.b64encode(args_pickle).decode("ascii"),
+                "kwargs_pickle": base64.b64encode(kwargs_pickle).decode("ascii"),
             }
 
-            job_bytes = base64.b64encode(cloudpickle.dumps(job_data))
-            job_length = len(job_bytes).to_bytes(4, byteorder="big")
-            logger.debug(f"Worker {self.worker_id}: sending job of {len(job_bytes)} bytes")
-
-            # Send job to worker with timeout on drain
-            self.process.stdin.write(job_length)
-            self.process.stdin.write(job_bytes)
-            try:
-                await asyncio.wait_for(self.process.stdin.drain(), timeout=5.0)
-            except asyncio.TimeoutError:
-                self.is_healthy = False
-                return {
-                    "error": True,
-                    "error_type": "WorkerUnresponsive",
-                    "error_message": "Worker did not accept job data within 5 seconds",
-                }
-            logger.debug(f"Worker {self.worker_id}: job sent, waiting for response")
-
-            # Read response with timeout
-            try:
-                length_bytes = await asyncio.wait_for(
-                    self.process.stdout.read(4), timeout=timeout_sec
+            # Send HTTP POST to worker
+            async with httpx.AsyncClient(timeout=timeout_sec + 5) as client:
+                response = await client.post(
+                    f"{self.worker_url}/execute",
+                    json=payload,
+                    timeout=timeout_sec + 5,  # Add buffer for HTTP overhead
                 )
-            except asyncio.TimeoutError:
-                self.is_healthy = False
-                return {
-                    "error": True,
-                    "error_type": "Timeout",
-                    "error_message": f"Execution exceeded {timeout_sec}s timeout",
-                }
 
-            if not length_bytes:
-                self.is_healthy = False
-                return {
-                    "error": True,
-                    "error_type": "WorkerDied",
-                    "error_message": "Worker process terminated unexpectedly",
-                }
+            # Parse response
+            result = response.json()
 
-            result_length = int.from_bytes(length_bytes, byteorder="big")
-
-            # Read result payload
-            result_bytes = await asyncio.wait_for(
-                self.process.stdout.read(result_length), timeout=5
-            )
-
-            result: dict[str, Any] = cloudpickle.loads(base64.b64decode(result_bytes))
+            # Convert result_pickle from base64 string to bytes
+            # (don't unpickle here - let the caller handle that)
+            if not result.get("error") and "result_pickle" in result:
+                result["result_pickle"] = base64.b64decode(result["result_pickle"])
 
             self.jobs_executed += 1
+            logger.debug(f"Worker {self.worker_id}: job completed")
             return result
 
+        except (httpx.TimeoutException, httpx.ReadTimeout, httpx.WriteTimeout, httpx.PoolTimeout):
+            self.is_healthy = False
+            return {
+                "error": True,
+                "error_type": "Timeout",
+                "error_message": f"Execution exceeded {timeout_sec}s timeout",
+            }
+        except (httpx.ConnectError, httpx.RemoteProtocolError) as e:
+            self.is_healthy = False
+
+            # Check if worker process is actually dead
+            process_status = "unknown"
+            if self.process:
+                returncode = self.process.returncode
+                if returncode is not None:
+                    process_status = f"dead (exit code {returncode})"
+                else:
+                    process_status = "alive"
+
+            logger.error(
+                f"Worker {self.worker_id} connection failed: {e} "
+                f"(process status: {process_status}, url: {self.worker_url})"
+            )
+
+            return {
+                "error": True,
+                "error_type": "WorkerDied",
+                "error_message": f"Worker process terminated or connection refused (process: {process_status})",
+            }
         except Exception as e:
             self.is_healthy = False
-            tb = traceback.format_exc()
             logger.error(f"Worker {self.worker_id} error: {e}")
-            logger.error(f"Traceback:\n{tb}")
 
             # Try to get stderr from process
             if self.process and self.process.stderr:
@@ -239,7 +260,6 @@ class SandboxWorker:
                 "error": True,
                 "error_type": type(e).__name__,
                 "error_message": str(e),
-                "traceback": tb,
             }
         finally:
             self.is_busy = False
@@ -248,9 +268,8 @@ class SandboxWorker:
         """Gracefully shutdown the worker."""
         if self.process:
             try:
-                if self.process.stdin:
-                    self.process.stdin.close()
-                    await self.process.stdin.wait_closed()
+                # Terminate the process
+                self.process.terminate()
 
                 # Wait for process to exit (with timeout)
                 try:
@@ -276,7 +295,7 @@ class WarmSandboxPool:
 
     def __init__(
         self,
-        pool_size: int = 5,
+        pool_size: int = 10,
         max_jobs_per_worker: int = 100,
         max_worker_age_seconds: float = 3600,
         max_idle_seconds: float = 300,
@@ -373,8 +392,18 @@ class WarmSandboxPool:
         # Find healthy, non-busy worker
         for worker in self.workers:
             if worker.is_healthy and not worker.is_busy:
+                logger.debug(
+                    f"Found available worker {worker.worker_id} "
+                    f"(age: {time.time() - worker.created_at:.1f}s, "
+                    f"jobs: {worker.jobs_executed})"
+                )
                 return worker
 
+        logger.debug(
+            f"No available workers (total: {len(self.workers)}, "
+            f"healthy: {sum(1 for w in self.workers if w.is_healthy)}, "
+            f"busy: {sum(1 for w in self.workers if w.is_busy)})"
+        )
         return None
 
     async def execute(
@@ -404,13 +433,18 @@ class WarmSandboxPool:
 
         # If no workers available, create an ad-hoc one
         if worker is None:
+            logger.info(
+                f"No workers available in pool, creating ad-hoc worker "
+                f"(memory={memory_mb}MB, cpus={cpus})"
+            )
             worker = await self._create_worker(memory_mb=memory_mb, cpus=cpus)
 
         # Execute the job
         result = await worker.execute(fn_pickle, args_pickle, kwargs_pickle, timeout_sec)
 
-        # Mark unhealthy workers for replacement
+        # Replace unhealthy workers immediately (not as background task)
         if not worker.is_healthy:
+            # Don't wait for replacement - do it in background but ensure it happens
             asyncio.create_task(self._replace_worker(worker))
 
         return result
@@ -428,14 +462,40 @@ class WarmSandboxPool:
         # Shutdown old worker
         await worker.shutdown()
 
-        # Create new worker if we're below pool size
+        # Create new worker if we're below pool size (with retries)
         if len(self.workers) < self.pool_size:
-            await self._create_worker()
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    await self._create_worker()
+                    break  # Success
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create replacement worker (attempt {attempt + 1}/{max_retries}): {e}"
+                    )
+                    if attempt == max_retries - 1:
+                        logger.error(
+                            f"Failed to create replacement worker after {max_retries} attempts"
+                        )
+                    else:
+                        # Brief delay before retry
+                        await asyncio.sleep(0.5 * (2**attempt))
 
     async def _manage_pool(self) -> None:
         """Background task to manage pool health."""
         while True:
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)  # Check every 5 seconds instead of 10
+
+            # First priority: ensure we have minimum workers
+            while len(self.workers) < self.pool_size:
+                try:
+                    logger.info(
+                        f"Pool below target size ({len(self.workers)}/{self.pool_size}), creating worker"
+                    )
+                    await self._create_worker()
+                except Exception as e:
+                    logger.error(f"Failed to create worker during pool maintenance: {e}")
+                    break  # Don't loop forever on errors
 
             # Check for workers that need rotation
             for worker in list(self.workers):

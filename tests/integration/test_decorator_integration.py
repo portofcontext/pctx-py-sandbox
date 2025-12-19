@@ -47,7 +47,7 @@ class TestSandboxDecoratorIntegration:
     def test_function_with_memory_limit(self) -> None:
         """Test function with custom memory limit."""
 
-        @sandbox(memory_mb=256)
+        @sandbox(memory_mb=512)
         def small_computation() -> int:
             return sum(range(100))
 

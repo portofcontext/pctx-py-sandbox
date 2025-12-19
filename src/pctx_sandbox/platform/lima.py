@@ -219,18 +219,74 @@ class LimaBackend(SandboxBackend):
         if result.stderr:
             logger.debug(f"stderr: {result.stderr}")
 
+    def _compute_local_version(self) -> str:
+        """Compute version hash of local agent files."""
+        import hashlib
+
+        agent_dir = Path(__file__).parent.parent / "agent"
+        files_to_hash = ["simple_agent.py", "pool.py", "worker.py", "nsjail.cfg"]
+
+        hasher = hashlib.sha256()
+        for filename in sorted(files_to_hash):
+            file_path = agent_dir / filename
+            if file_path.exists():
+                hasher.update(file_path.read_bytes())
+
+        return hasher.hexdigest()[:16]
+
     def _start_agent(self) -> None:
-        """Start the agent inside the VM if not already running."""
+        """Start the agent inside the VM if not already running.
+
+        Automatically restarts agent if version hash doesn't match local files.
+        """
         logger.debug("Checking if agent is already running")
 
-        # First check if agent is already healthy
+        # Check if agent is running and get its version
+        agent_needs_restart = False
         try:
             import httpx
 
             response = httpx.get(f"{self.agent_url}/health", timeout=1.0)
             if response.status_code == 200:
-                logger.debug("Agent is already running and healthy")
-                return
+                logger.debug("Agent is running, checking version")
+
+                # Check version hash
+                try:
+                    version_response = httpx.get(f"{self.agent_url}/version", timeout=1.0)
+                    if version_response.status_code == 200:
+                        remote_version = version_response.json().get("version")
+                        local_version = self._compute_local_version()
+
+                        if remote_version == local_version:
+                            logger.debug(f"Agent version matches ({local_version})")
+                            return
+                        else:
+                            logger.info(
+                                f"Agent version mismatch: remote={remote_version}, "
+                                f"local={local_version}. Restarting agent..."
+                            )
+                            agent_needs_restart = True
+                except Exception as e:
+                    logger.warning(f"Failed to check agent version: {e}. Restarting agent...")
+                    agent_needs_restart = True
+
+                # If we need to restart, kill the old agent
+                if agent_needs_restart:
+                    logger.debug("Stopping old agent")
+                    kill_cmd = [
+                        "limactl",
+                        "shell",
+                        self.VM_NAME,
+                        "sudo",
+                        "pkill",
+                        "-f",
+                        "simple_agent.py",
+                    ]
+                    subprocess.run(kill_cmd, capture_output=True, text=True)
+                    # Give it a moment to shut down
+                    import time
+
+                    time.sleep(1)
         except httpx.ConnectError:
             logger.debug("Agent is not running, starting it")
 
@@ -254,8 +310,8 @@ class LimaBackend(SandboxBackend):
             if result.returncode != 0:
                 raise SandboxStartupError(f"Failed to copy {filename} to VM: {result.stderr}")
 
-        # Fix file permissions for root access
-        logger.debug("Setting file permissions for root access")
+        # Fix file permissions so nsjail can read them
+        logger.debug("Setting file permissions in VM")
         chmod_cmd = [
             "limactl",
             "shell",
@@ -268,9 +324,11 @@ class LimaBackend(SandboxBackend):
             "/tmp/worker.py",
             "/tmp/nsjail.cfg",
         ]
-        subprocess.run(chmod_cmd, capture_output=True, text=True)
+        result = subprocess.run(chmod_cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise SandboxStartupError(f"Failed to chmod files in VM: {result.stderr}")
 
-        # Install agent dependencies system-wide (for root user)
+        # Install agent dependencies system-wide (requires root)
         logger.debug("Installing agent dependencies in VM (system-wide)")
         install_cmd = [
             "limactl",
@@ -284,6 +342,7 @@ class LimaBackend(SandboxBackend):
             "uvicorn",
             "cloudpickle",
             "msgpack",
+            "httpx",  # Added for HTTP-based worker communication
         ]
         logger.debug(f"Running: {' '.join(install_cmd)}")
         result = subprocess.run(install_cmd, capture_output=True, text=True)
@@ -298,11 +357,11 @@ class LimaBackend(SandboxBackend):
 
         # Start the agent in the background as root (nsjail requires root for namespaces)
         logger.debug("Starting agent process in VM as root")
-        # Must remove old log file first since it may be owned by regular user
+        # Remove old log file if it exists
         cleanup_cmd = ["limactl", "shell", self.VM_NAME, "sudo", "rm", "-f", "/tmp/agent.log"]
         subprocess.run(cleanup_cmd, capture_output=True, text=True)
 
-        # Start agent as root with proper quoting - redirect must happen inside sudo
+        # Start agent as root
         start_cmd = [
             "limactl",
             "shell",

@@ -36,7 +36,7 @@ def _get_client() -> SandboxClient:
 
 def sandbox(
     dependencies: list[str] | None = None,
-    memory_mb: int = 512,
+    memory_mb: int = 1024,
     timeout_sec: int = 30,
     cpus: int = 1,
     allow_network: list[str] | None = None,
@@ -169,7 +169,7 @@ def sandbox(
 
 def sandbox_async(
     dependencies: list[str] | None = None,
-    memory_mb: int = 512,
+    memory_mb: int = 1024,
     timeout_sec: int = 30,
     cpus: int = 1,
     allow_network: list[str] | None = None,

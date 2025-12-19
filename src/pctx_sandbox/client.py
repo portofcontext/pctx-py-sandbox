@@ -88,6 +88,18 @@ class SandboxClient:
 
                 return result
 
+            except (
+                httpx.TimeoutException,
+                httpx.ReadTimeout,
+                httpx.WriteTimeout,
+                httpx.PoolTimeout,
+            ):
+                # Timeout errors - convert to proper error response
+                return {
+                    "error": True,
+                    "error_type": "Timeout",
+                    "error_message": f"Execution exceeded {timeout_sec}s timeout",
+                }
             except Exception as e:
                 # Network-level errors
                 if attempt < max_retries - 1:
@@ -154,6 +166,18 @@ class SandboxClient:
 
                     return result
 
+            except (
+                httpx.TimeoutException,
+                httpx.ReadTimeout,
+                httpx.WriteTimeout,
+                httpx.PoolTimeout,
+            ):
+                # Timeout errors - convert to proper error response
+                return {
+                    "error": True,
+                    "error_type": "Timeout",
+                    "error_message": f"Execution exceeded {timeout_sec}s timeout",
+                }
             except Exception as e:
                 # Network-level errors
                 if attempt < max_retries - 1:

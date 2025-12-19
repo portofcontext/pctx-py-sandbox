@@ -4,6 +4,7 @@ This agent provides sandboxing using nsjail with warm process pools for fast exe
 """
 
 import asyncio
+import hashlib
 import shutil
 import sys
 from pathlib import Path
@@ -128,12 +129,15 @@ class SimpleExecutor:
 
         # Install dependencies
         # Note: Cannot use firejail here as it would isolate the venv from the cache
+        # Worker needs: cloudpickle (for serialization), fastapi+uvicorn (for HTTP server)
         pip_bin = venv_path / "bin" / "pip"
         proc = await asyncio.create_subprocess_exec(
             str(pip_bin),
             "install",
             "--no-cache-dir",
             "cloudpickle",
+            "fastapi",
+            "uvicorn",
             *dependencies,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -189,29 +193,65 @@ async def execute(request: Request) -> Response:
         request: HTTP request with msgpack payload
 
     Returns:
-        msgpack-encoded result
+        msgpack-encoded result (always returns msgpack, even for errors)
     """
-    body = await request.body()
-    data = msgpack.unpackb(body)
+    try:
+        body = await request.body()
+        data = msgpack.unpackb(body)
 
-    result = await executor.execute(
-        fn_pickle=data["fn_pickle"],
-        args_pickle=data["args_pickle"],
-        kwargs_pickle=data["kwargs_pickle"],
-        dependencies=data.get("dependencies", []),
-        dep_hash=data.get("dep_hash", "none"),
-        timeout_sec=data.get("timeout_sec", 30),
-        memory_mb=data.get("memory_mb", 512),
-        cpus=data.get("cpus", 1),
-    )
+        result = await executor.execute(
+            fn_pickle=data["fn_pickle"],
+            args_pickle=data["args_pickle"],
+            kwargs_pickle=data["kwargs_pickle"],
+            dependencies=data.get("dependencies", []),
+            dep_hash=data.get("dep_hash", "none"),
+            timeout_sec=data.get("timeout_sec", 30),
+            memory_mb=data.get("memory_mb", 512),
+            cpus=data.get("cpus", 1),
+        )
 
-    return Response(content=msgpack.packb(result), media_type="application/msgpack")
+        return Response(content=msgpack.packb(result), media_type="application/msgpack")
+
+    except Exception as e:
+        # Always return msgpack-encoded error response
+        error_result = {
+            "error": True,
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+        }
+        return Response(content=msgpack.packb(error_result), media_type="application/msgpack")
+
+
+def _compute_agent_version() -> str:
+    """Compute version hash from agent source files.
+
+    This allows detecting when agent code has changed and needs reloading.
+    """
+    agent_dir = Path(__file__).parent
+    files_to_hash = ["simple_agent.py", "pool.py", "worker.py", "nsjail.cfg"]
+
+    hasher = hashlib.sha256()
+    for filename in sorted(files_to_hash):  # Sort for consistency
+        file_path = agent_dir / filename
+        if file_path.exists():
+            hasher.update(file_path.read_bytes())
+
+    return hasher.hexdigest()[:16]  # First 16 chars of hash
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
     """Health check."""
     return {"status": "ok"}
+
+
+@app.get("/version")
+async def version() -> dict[str, str]:
+    """Return agent version hash based on source files.
+
+    This allows clients to detect when agent code has changed.
+    """
+    return {"version": _compute_agent_version()}
 
 
 @app.get("/status")
