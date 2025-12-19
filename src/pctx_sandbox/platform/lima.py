@@ -1,6 +1,7 @@
 """Lima backend for macOS."""
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -16,10 +17,26 @@ class LimaBackend(SandboxBackend):
     VM_NAME = "pctx-sandbox"
     AGENT_PORT = 9000
 
-    def __init__(self) -> None:
-        """Initialize the Lima backend."""
+    def __init__(
+        self,
+        cpus: int | None = None,
+        memory_gib: int | None = None,
+        disk_gib: int | None = None,
+    ) -> None:
+        """Initialize the Lima backend.
+
+        Args:
+            cpus: Number of CPUs for the VM (default: 2, or PCTX_LIMA_CPUS env var)
+            memory_gib: Memory in GiB (default: 4, or PCTX_LIMA_MEMORY_GIB env var)
+            disk_gib: Disk size in GiB (default: 20, or PCTX_LIMA_DISK_GIB env var)
+        """
         self._agent_url = f"http://localhost:{self.AGENT_PORT}"
         self._config_path = Path(__file__).parent / "lima-config.yaml"
+
+        # Allow configuration via environment variables or parameters
+        self.cpus = cpus or int(os.getenv("PCTX_LIMA_CPUS", "2"))
+        self.memory_gib = memory_gib or int(os.getenv("PCTX_LIMA_MEMORY_GIB", "4"))
+        self.disk_gib = disk_gib or int(os.getenv("PCTX_LIMA_DISK_GIB", "20"))
 
     @property
     def agent_url(self) -> str:
@@ -75,16 +92,34 @@ class LimaBackend(SandboxBackend):
     def _create_vm(self) -> None:
         """Create the Lima VM for sandbox agent."""
         subprocess.run(
-            ["limactl", "create", "--name", self.VM_NAME, str(self._config_path)], check=True
+            [
+                "limactl",
+                "create",
+                "--name",
+                self.VM_NAME,
+                f"--cpus={self.cpus}",
+                f"--memory={self.memory_gib}",
+                f"--disk={self.disk_gib}",
+                str(self._config_path),
+            ],
+            check=True,
         )
         self._start_vm()
 
     def _start_vm(self) -> None:
         """Start the Lima VM."""
         try:
-            subprocess.run(["limactl", "start", self.VM_NAME], check=True)
+            subprocess.run(
+                ["limactl", "start", self.VM_NAME],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
         except subprocess.CalledProcessError as e:
-            raise SandboxStartupError(f"Failed to start VM: {e}") from e
+            error_msg = f"Failed to start VM: {e}"
+            if e.stderr:
+                error_msg += f"\n\nLima error output:\n{e.stderr}"
+            raise SandboxStartupError(error_msg) from e
 
     def stop(self) -> None:
         """Stop the sandbox VM."""

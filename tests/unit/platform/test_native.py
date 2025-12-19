@@ -182,6 +182,10 @@ class TestNativeBackend:
         mock_proc.pid = 12345
 
         mock_cache_dir = Mock()
+        mock_log_file = Mock()
+        mock_log_file.exists.return_value = False  # No log file to read
+        mock_cache_dir.__truediv__ = Mock(return_value=mock_log_file)  # Support / operator
+
         mock_pid_file = Mock()
         mock_pid_file.exists.return_value = True
 

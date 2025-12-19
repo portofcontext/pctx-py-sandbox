@@ -7,9 +7,9 @@ images:
   - location: "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-arm64.img"
     arch: "aarch64"
 
-cpus: 4
-memory: "8GiB"
-disk: "100GiB"
+# cpus, memory, and disk are set via command-line flags in lima.py
+# Default values: 2 CPUs, 4GiB memory, 20GiB disk
+# Override via PCTX_LIMA_CPUS, PCTX_LIMA_MEMORY_GIB, PCTX_LIMA_DISK_GIB env vars
 
 mounts:
   - location: "~"
