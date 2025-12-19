@@ -21,10 +21,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Lima on macOS
+      - name: Install Lima and QEMU on macOS
         if: runner.os == 'macOS'
         run: |
-          brew install lima
+          brew install qemu lima
 
       - name: Install nsjail on Linux
         if: runner.os == 'Linux'
@@ -40,6 +40,13 @@ jobs:
 
       - name: Install dependencies
         run: make install
+
+      - name: Verify nsjail on Linux
+        if: runner.os == 'Linux'
+        run: |
+          which nsjail
+          nsjail --version || echo "nsjail version command not available"
+          nsjail --help | head -5
 
       - name: Run tests
         run: make test

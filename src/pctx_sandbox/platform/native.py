@@ -118,6 +118,21 @@ class NativeBackend(SandboxBackend):
             # Cleanup on failure
             if self.PID_FILE.exists():
                 self.PID_FILE.unlink()
+
+            # Read agent log for diagnostics
+            log_file = self.CACHE_DIR / "agent.log"
+            log_contents = ""
+            if log_file.exists():
+                try:
+                    log_contents = log_file.read_text()
+                    log_lines = log_contents.splitlines()
+                    recent_log = "\n".join(log_lines[-50:])
+                    raise SandboxStartupError(
+                        f"Failed to start agent: {e}\n\nAgent log (last 50 lines):\n{recent_log}"
+                    ) from e
+                except Exception:
+                    pass  # If we can't read log, continue with original error
+
             raise SandboxStartupError(f"Failed to start agent: {e}") from e
 
     def stop(self) -> None:

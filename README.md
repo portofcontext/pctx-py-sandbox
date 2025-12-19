@@ -18,9 +18,9 @@ A Python decorator that executes untrusted code in isolated sandboxes with defen
 
 ### macOS
 
-Install Lima (required for VM isolation):
+Install Lima and QEMU (required for VM isolation):
 ```bash
-brew install lima
+brew install qemu lima
 ```
 
 Install pctx-sandbox:
@@ -156,7 +156,7 @@ Planned: WSL2-based backend
 
 ## Requirements
 
-- **macOS**: Lima (install: `brew install lima`)
+- **macOS**: QEMU + Lima (install: `brew install qemu lima`)
 - **Linux**: nsjail (see installation instructions above) + Python 3.10+
 - **Windows**: Coming soon 🚧
 

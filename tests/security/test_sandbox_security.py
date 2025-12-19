@@ -99,34 +99,30 @@ class TestFilesystemIsolation:
         assert result["credentials_exists"] is False, "GCP credentials should not be accessible"
 
     def test_cannot_read_etc_passwd(self):
-        """Verify cannot read host /etc/passwd."""
+        """Verify sandbox cannot access host /etc/passwd file."""
 
         @sandbox()
         def read_passwd() -> str:
             try:
                 with open("/etc/passwd") as f:
                     content = f.read()
-                # Return first line to check if it's host or VM
                 return content.split("\n")[0]
             except Exception as e:
                 return f"Error: {e}"
 
         result = read_passwd()
 
-        # If /etc/passwd is readable, verify it's the VM's not the host's
+        # Verify sandbox has isolated /etc/passwd, not host's
         host_user = getpass.getuser()
         if "root:x:0:0" in result:
-            # This is normal - it's the VM's /etc/passwd
-            # Make sure host user is NOT in it
+            # Sandbox has its own /etc/passwd
             assert host_user not in result, "Host user should not appear in sandbox /etc/passwd"
 
     def test_cannot_write_to_host_home(self):
-        """Verify writes don't affect host home directory."""
+        """Verify sandbox writes do not affect host home directory."""
 
-        # Create a unique filename in host temp
         host_file = os.path.join(tempfile.gettempdir(), "sandbox_escape_test.txt")
 
-        # Clean up any existing file
         if os.path.exists(host_file):
             os.remove(host_file)
 
@@ -139,15 +135,14 @@ class TestFilesystemIsolation:
             except Exception:
                 return False
 
-        # Function might succeed in sandbox (writes to VM's /tmp)
+        # Write may succeed within sandbox's isolated filesystem
         try_write_host(host_file)
 
-        # But file should NOT exist on host
+        # Verify file does not exist on host filesystem
         assert not os.path.exists(host_file), (
             "Sandbox should not be able to write to host filesystem"
         )
 
-        # Cleanup
         if os.path.exists(host_file):
             os.remove(host_file)
 
@@ -158,7 +153,6 @@ class TestEnvironmentIsolation:
 
     def test_cannot_read_host_env_vars(self):
         """Verify host environment variables are not accessible."""
-        # Set a unique env var on host
         secret_key = "PCTX_SANDBOX_SECRET_TEST"
         secret_value = "this_should_not_leak_12345"
         os.environ[secret_key] = secret_value
@@ -173,20 +167,15 @@ class TestEnvironmentIsolation:
 
             result = check_env(secret_key)
 
-            # Secret should NOT be accessible in sandbox
+            # Verify environment isolation
             assert result is None, f"Host environment variable '{secret_key}' leaked into sandbox"
 
         finally:
-            # Cleanup
             del os.environ[secret_key]
 
     def test_different_user_in_sandbox(self):
         """Verify sandbox runs in isolated environment."""
         import sys
-
-        # Note: On macOS, Lima mounts host user's home, so USER env var may be same
-        # On Linux, nsjail runs with mapped UID but different namespace
-        # This is acceptable - the key isolation is filesystem/network/process
 
         @sandbox()
         def get_sandbox_info() -> dict[str, str]:
@@ -201,12 +190,12 @@ class TestEnvironmentIsolation:
         result = get_sandbox_info()
         host_hostname = socket.gethostname()
 
-        # Verify we're in a different environment (different hostname on macOS)
+        # Verify environment isolation via hostname difference
         if sys.platform == "darwin":
             assert result["hostname"] != host_hostname, (
                 "Sandbox should run in VM with different hostname"
             )
-        # On Linux, hostname may be same but isolation is still enforced via namespaces
+        # Note: On Linux, UTS namespace isolation is tested in test_isolation_mechanisms.py
 
     def test_different_hostname_in_sandbox(self):
         """Verify sandbox has different hostname than host."""
@@ -221,15 +210,12 @@ class TestEnvironmentIsolation:
         sandbox_hostname = get_sandbox_hostname()
         host_hostname = socket.gethostname()
 
-        # Sandbox should have different hostname
-        # On macOS: Different hostname (Lima VM)
-        # On Linux: May be same hostname (nsjail doesn't change hostname by default)
-        #           but still isolated via UTS namespace
+        # Verify hostname isolation
         if sys.platform == "darwin":
             assert sandbox_hostname != host_hostname, (
                 "Sandbox should have different hostname than host"
             )
-        # On Linux, hostname may be same but isolation is still enforced via namespaces
+        # Note: On Linux, UTS namespace isolation is tested in test_isolation_mechanisms.py
 
 
 @pytest.mark.requires_sandbox_agent
@@ -255,11 +241,8 @@ class TestNetworkIsolation:
 
         check_network()
 
-        # Network should be blocked by sandbox configuration
-        # Note: Current nsjail config has clone_newnet: false, so network may be available
-        # This test documents the current behavior - full network isolation requires
-        # setting clone_newnet: true in nsjail.cfg
-        # assert result is False, "Network should be blocked by default"
+        # Note: Current configuration allows network access (clone_newnet: false)
+        # Full network isolation requires setting clone_newnet: true in nsjail.cfg
 
     def test_cannot_resolve_dns(self):
         """Verify DNS resolution is blocked."""
@@ -276,9 +259,7 @@ class TestNetworkIsolation:
 
         try_dns()
 
-        # Note: Current nsjail config has clone_newnet: false, so DNS may work
-        # To fully isolate network, set clone_newnet: true in nsjail.cfg
-        # assert result["dns_works"] is False, "DNS resolution should be blocked"
+        # Note: Current configuration allows DNS resolution (clone_newnet: false)
 
     def test_cannot_make_http_request(self):
         """Verify HTTP requests are blocked."""
@@ -295,9 +276,7 @@ class TestNetworkIsolation:
 
         try_http()
 
-        # Note: Current nsjail config has clone_newnet: false, so HTTP may work
-        # To fully isolate network, set clone_newnet: true in nsjail.cfg
-        # assert result["http_works"] is False, "HTTP requests should be blocked"
+        # Note: Current configuration allows HTTP requests (clone_newnet: false)
 
 
 @pytest.mark.requires_sandbox_agent
@@ -330,11 +309,10 @@ class TestProcessIsolation:
 
         result = get_process_list()
 
-        # Should see VM processes, not host processes
-        # Host processes typically include system daemons that won't be in Lima VM
+        # Verify sandbox cannot see host processes
         result_str = " ".join(result)
 
-        # These are common macOS processes that should NOT appear
+        # Common macOS host processes that should not be visible
         host_only_processes = ["WindowServer", "Dock", "Finder", "Safari"]
         for proc in host_only_processes:
             assert proc not in result_str, f"Should not see host process '{proc}' from sandbox"
@@ -344,7 +322,6 @@ class TestProcessIsolation:
         import os
         import signal
 
-        # Get current process PID (on host)
         host_pid = os.getpid()
 
         @sandbox()
@@ -363,7 +340,7 @@ class TestProcessIsolation:
 
         result = try_kill(host_pid)
 
-        # Should not be able to kill host process
+        # Verify process isolation prevents killing host processes
         assert result["killed"] is False, "Sandbox should not be able to kill host processes"
 
 
@@ -372,14 +349,13 @@ class TestPrivilegeIsolation:
     """Test that the sandbox cannot escalate privileges."""
 
     def test_cannot_become_root(self):
-        """Verify cannot escalate to root."""
+        """Verify sandbox cannot escalate to root privileges."""
 
         @sandbox()
         def try_become_root() -> dict[str, bool | int | str]:
             import os
 
             try:
-                # Try to set uid to 0 (root)
                 os.setuid(0)
                 uid_after = os.getuid()
                 return {"became_root": uid_after == 0, "uid": uid_after}
@@ -398,22 +374,20 @@ class TestPrivilegeIsolation:
 
         result = try_become_root()
 
-        # Should not be able to become root
+        # Verify privilege escalation is blocked
         assert result["became_root"] is False, "Should not be able to escalate to root"
         assert result["uid"] != 0, "UID should not be 0 (root)"
 
     def test_cannot_change_file_ownership(self):
-        """Verify cannot use chown to escalate privileges."""
+        """Verify chown operations cannot escalate privileges."""
 
         @sandbox()
         def try_chown() -> dict[str, bool | str]:
             import os
 
             try:
-                # Create a test file
                 with open("/tmp/test_chown.txt", "w") as f:
                     f.write("test")
-                # Try to chown to root
                 os.chown("/tmp/test_chown.txt", 0, 0)
                 return {"chown_worked": True}
             except PermissionError:
@@ -423,7 +397,7 @@ class TestPrivilegeIsolation:
 
         result = try_chown()
 
-        # chown to root should fail
+        # Verify chown to root is blocked
         assert result["chown_worked"] is False, "Should not be able to chown to root"
 
     def test_no_sudo_available(self):
@@ -439,7 +413,6 @@ class TestPrivilegeIsolation:
                 return {"sudo_exists": False}
 
             try:
-                # Try to run sudo
                 result = subprocess.run(
                     ["sudo", "-n", "echo", "test"],
                     capture_output=True,
@@ -454,7 +427,7 @@ class TestPrivilegeIsolation:
 
         result = check_sudo()
 
-        # Even if sudo exists, it should not work without password
+        # Verify sudo cannot be used for privilege escalation
         if result.get("sudo_exists"):
             assert result.get("sudo_works") is False, "sudo should not work without password"
 
@@ -470,15 +443,13 @@ class TestResourceLimits:
         def infinite_loop() -> str:
             import time
 
-            # Try to run forever
             time.sleep(10)
             return "should_not_reach_here"
 
-        # Should timeout
+        # Verify timeout is enforced
         with pytest.raises(Exception) as exc_info:
             infinite_loop()
 
-        # Verify it's a timeout error
         assert (
             "timeout" in str(exc_info.value).lower() or "exceeded" in str(exc_info.value).lower()
         ), "Should raise timeout error"
@@ -489,11 +460,9 @@ class TestResourceLimits:
         @sandbox(timeout_sec=3)
         def try_large_allocation() -> dict[str, bool | int | str]:
             try:
-                # Try to allocate moderately large data structures
                 data = []
                 allocated = 0
                 for _i in range(50):
-                    # Allocate 5MB chunks
                     data.append("x" * (5 * 1024 * 1024))
                     allocated += 5
                 return {"succeeded": True, "allocated_mb": allocated}
@@ -502,15 +471,13 @@ class TestResourceLimits:
             except Exception as e:
                 return {"succeeded": False, "error": str(type(e).__name__)}
 
-        # Should either succeed with reasonable allocation or fail gracefully
-        # The key is it doesn't crash the host or hang indefinitely
+        # Verify memory operations are contained and don't crash host
         try:
             result = try_large_allocation()
-            # If it succeeded, verify it's within reasonable bounds
             if result.get("succeeded"):
                 assert result.get("allocated_mb", 0) < 1000, "Should have reasonable memory limit"
         except Exception:
-            # Timeout or other error is acceptable - the point is it doesn't crash
+            # Timeout or controlled failure is acceptable
             pass
 
 
@@ -519,7 +486,7 @@ class TestSyscallFiltering:
     """Test that dangerous syscalls are blocked."""
 
     def test_cannot_use_ptrace_on_host(self):
-        """Verify cannot ptrace host processes."""
+        """Verify ptrace syscall cannot access host processes."""
         import os
 
         host_pid = os.getpid()
@@ -530,7 +497,6 @@ class TestSyscallFiltering:
 
             try:
                 libc = ctypes.CDLL(None)
-                # PTRACE_ATTACH = 16, try to attach to host process
                 result = libc.ptrace(16, pid, 0, 0)
                 return {"ptrace_worked": result == 0, "result": result}
             except Exception as e:
@@ -538,8 +504,7 @@ class TestSyscallFiltering:
 
         result = try_ptrace_host(host_pid)
 
-        # Should not be able to ptrace host processes
-        # Either ptrace is blocked, or it fails due to PID namespace isolation
+        # Verify ptrace is blocked via seccomp or PID namespace isolation
         assert result["ptrace_worked"] is False, "Should not be able to ptrace host processes"
 
     def test_cannot_mount_filesystem(self):
@@ -550,7 +515,6 @@ class TestSyscallFiltering:
             import subprocess
 
             try:
-                # Try to mount /tmp
                 result = subprocess.run(
                     ["mount", "-t", "tmpfs", "tmpfs", "/tmp/test_mount"],
                     capture_output=True,
@@ -565,5 +529,5 @@ class TestSyscallFiltering:
 
         result = try_mount()
 
-        # mount should fail
+        # Verify mount syscall is blocked
         assert result["mount_worked"] is False, "mount syscall should be blocked"

@@ -222,6 +222,26 @@ async def status() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
+    import logging
+    import os
+
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=9000)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+    logger = logging.getLogger(__name__)
+
+    logger.info("Starting sandbox agent...")
+    logger.info(f"Python: {sys.version}")
+    logger.info(f"Platform: {sys.platform}")
+    logger.info(f"nsjail available: {shutil.which('nsjail') is not None}")
+    logger.info(f"nsjail path: {shutil.which('nsjail')}")
+    logger.info(f"Working directory: {os.getcwd()}")
+
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=9000, log_level="info")
+    except Exception as e:
+        logger.error(f"Failed to start uvicorn: {e}", exc_info=True)
+        raise
