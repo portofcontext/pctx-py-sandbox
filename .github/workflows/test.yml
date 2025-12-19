@@ -25,6 +25,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install qemu lima
+          # ensure fresh creation with new resource settings
+          limactl delete --force pctx-sandbox || true
 
       - name: Install nsjail on Linux
         if: runner.os == 'Linux'
@@ -45,8 +47,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           which nsjail
-          nsjail --version || echo "nsjail version command not available"
-          nsjail --help | head -5
+          nsjail --help | head -10
 
       - name: Run tests
         run: make test
