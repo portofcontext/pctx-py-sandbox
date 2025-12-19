@@ -103,8 +103,9 @@ class SimpleExecutor:
             return self.dep_envs[dep_hash]
 
         venv_path = self.cache_dir / f"venv-{dep_hash}"
+        pip_bin = venv_path / "bin" / "pip"
 
-        if venv_path.exists():
+        if venv_path.exists() and pip_bin.exists():
             self.dep_envs[dep_hash] = venv_path
             return venv_path
 

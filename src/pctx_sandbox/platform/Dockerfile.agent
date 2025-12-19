@@ -16,11 +16,21 @@ RUN pip install --no-cache-dir \
     msgpack \
     httpx
 
+# Create non-root user for running agent
+RUN useradd -m -u 1000 -s /bin/bash sandbox && \
+    # Remove /etc/shadow to prevent privilege escalation attempts
+    rm -f /etc/shadow /etc/shadow- && \
+    # Create empty shadow files with no permissions
+    touch /etc/shadow && chmod 000 /etc/shadow
+
 # Copy agent files
 COPY agent/ /app/
 
-# Create cache directory
-RUN mkdir -p /tmp/pctx-cache
+# Create cache directory and set ownership
+RUN mkdir -p /tmp/pctx-cache && chown -R sandbox:sandbox /app /tmp/pctx-cache
+
+# Switch to non-root user
+USER sandbox
 
 # Expose agent port
 EXPOSE 9000

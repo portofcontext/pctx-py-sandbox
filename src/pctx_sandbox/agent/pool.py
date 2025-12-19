@@ -74,6 +74,9 @@ class SandboxWorker:
 
         # Wait for worker to signal readiness with port number
         # This blocks until worker has actually started HTTP server
+        if not self.process.stdout:
+            raise RuntimeError(f"Worker {self.worker_id} stdout is None")
+
         try:
             ready_line = await asyncio.wait_for(
                 self.process.stdout.readline(),

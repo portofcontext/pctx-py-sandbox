@@ -83,7 +83,7 @@ The `@sandbox` decorator handles dependencies automatically:
    - Your host system remains unchanged
    - Different sandboxes can use conflicting dependency versions
 
-4. **No dependencies needed?** Just omit the parameter:
+4. **No dependencies** omit the parameter:
    ```python
    @sandbox()
    def safe_computation(x: int) -> int:
@@ -131,7 +131,7 @@ Host System
 
 ## Security
 
-### Why Podman Provides Strong Isolation
+### Podman Provides Strong Isolation
 
 [Podman](https://podman.io/) is a **daemonless container engine** that provides OCI-standard container isolation with rootless execution by default.
 
@@ -156,15 +156,6 @@ Host System
 
 4. **SELinux/AppArmor Integration** - Additional security layers where available
 
-5. **Read-only Filesystem** - Container filesystem isolation prevents host tampering
-
-**Proven in Production:**
-
-- Used by Red Hat, SUSE, and major cloud providers
-- OCI-standard containers (same security model as Docker)
-- Rootless execution eliminates entire classes of vulnerabilities
-- No daemon = smaller attack surface
-
 ### Security Validation
 
 All security claims are validated by comprehensive tests in [tests/security/test_sandbox_security.py](tests/security/test_sandbox_security.py). The test suite covers:
@@ -186,17 +177,7 @@ uv run pytest tests/security/ -v
 
 **Not a Security Boundary (Same as Docker):**
 
-Like all container solutions, Podman provides [strong isolation but not a perfect security boundary](https://www.helpnetsecurity.com/2025/05/20/containers-namespaces-security/). Linux namespaces were designed for resource partitioning, not security isolation. While they provide excellent defense-in-depth:
-
-- All containerized processes share the same Linux kernel
-- Kernel vulnerabilities could potentially allow escapes
-- Side-channel attacks (Spectre, Meltdown) may leak information
-
-**Best Practices:**
-- Keep your kernel updated with security patches
-- Use on systems with recent kernels (5.10+) that have namespace security improvements
-- Rootless Podman provides additional security layers
-- Monitor for kernel CVEs related to namespaces and containers
+Like all container solutions, Podman provides [strong isolation but not a perfect security boundary](https://www.helpnetsecurity.com/2025/05/20/containers-namespaces-security/). Linux namespaces were designed for resource partitioning, not security isolation.
 
 ## License
 
