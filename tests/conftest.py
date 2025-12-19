@@ -29,7 +29,7 @@ def sample_function_with_deps():
     """A sample function that requires dependencies."""
 
     def process_with_pandas(data: list) -> int:
-        import pandas as pd
+        import pandas as pd  # type: ignore[import-untyped]
 
         df = pd.DataFrame(data)
         return len(df)

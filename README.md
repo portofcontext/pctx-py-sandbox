@@ -18,19 +18,37 @@ A Python decorator that executes untrusted code in isolated sandboxes with defen
 
 ### macOS
 
-1. Install Lima (required for VM isolation):
+Install Lima (required for VM isolation):
 ```bash
 brew install lima
 ```
 
-2. Install pctx-sandbox:
+Install pctx-sandbox:
 ```bash
 pip install pctx-sandbox
 ```
 
-### Linux & Windows
+### Linux
 
-Linux and Windows support is coming soon. Track progress at [GitHub Issues](https://github.com/portofcontext/python-sandbox/issues).
+Install nsjail (required for process sandboxing):
+
+**Ubuntu/Debian**
+```bash
+# Use the installation script
+curl -fsSL https://raw.githubusercontent.com/portofcontext/python-sandbox/main/scripts/install-linux-deps.sh | bash
+```
+or have a look at `scripts/install-linux-deps.sh` to install manually
+
+**Other distributions:** See [nsjail installation guide](https://github.com/google/nsjail)
+
+Install pctx-sandbox:
+```bash
+pip install pctx-sandbox
+```
+
+### Windows
+
+Windows support is coming soon.
 
 ## Quick Start
 
@@ -60,9 +78,10 @@ The `@sandbox` decorator handles dependencies automatically:
        # Your code here
    ```
 
-2. **Dependency caching** - Dependencies are installed once per unique set and cached:
-   - Each unique combination of dependencies creates a persistent VM image
-   - Subsequent runs with the same dependencies reuse the cached environment
+2. **Dependency caching with warm pools** - Dependencies are installed once and reused:
+   - Each unique combination of dependencies creates a cached virtual environment
+   - A pool of warm workers is maintained per dependency set for instant execution
+   - Workers are automatically rotated after 100 jobs or 1 hour
    - Cache key is based on the sorted list of dependencies
 
 3. **Isolation guarantees**:
@@ -99,27 +118,6 @@ make type-check
 make help
 ```
 
-<details>
-<summary>Direct uv commands (if not using make)</summary>
-
-```bash
-# Install with uv
-uv sync --all-extras
-
-# Run tests
-uv run pytest tests/unit/ -v
-
-# Format code
-uv run ruff format .
-
-# Lint code
-uv run ruff check .
-
-# Type check
-uv run mypy src/pctx_sandbox
-```
-</details>
-
 ## How It Works
 
 **Defense-in-Depth Security Architecture:**
@@ -128,22 +126,29 @@ uv run mypy src/pctx_sandbox
 ```
 Host System
   └── Lima VM (Ubuntu)
-      └── Firejail Sandbox
-          └── Isolated Python Process
+      └── nsjail Sandbox with Warm Process Pool
+          └── Isolated Python Workers
 ```
 
 1. **VM Isolation (Lima)**: Isolated filesystem, environment, and resources
-2. **Process Sandboxing (Firejail)**: Syscall filtering, capability dropping, network isolation
-3. **Execution**: Functions run with no access to host credentials, files, or processes
+2. **Process Sandboxing (nsjail)**: Linux namespaces, cgroups, seccomp-bpf syscall filtering
+3. **Warm Process Pool**: Pre-initialized workers for fast execution (no cold-start overhead)
+4. **Resource Limits**: Enforced CPU and memory limits via cgroups
+5. **Execution**: Functions run with no access to host credentials, files, or processes
 
-### Linux (Coming Soon)
+### Linux (Supported)
 ```
 Host System
-  └── Firejail/Bubblewrap Sandbox
-      └── Isolated Python Process
+  └── nsjail Sandbox with Warm Process Pool
+      └── Isolated Python Workers
 ```
 
-Planned: Native process sandboxing with firejail or bubblewrap
+1. **Process Sandboxing (nsjail)**: Linux namespaces, cgroups, seccomp-bpf syscall filtering
+2. **Warm Process Pool**: Pre-initialized workers for fast execution (no cold-start overhead)
+3. **Resource Limits**: Enforced CPU and memory limits via cgroups
+4. **Execution**: Functions run with no access to host credentials, files, or processes
+
+**Note:** Linux provides single-layer isolation (process sandboxing only) compared to macOS's two-layer approach (VM + process). Both are secure for typical use cases, but macOS offers additional defense-in-depth.
 
 ### Windows (Coming Soon)
 
@@ -152,7 +157,7 @@ Planned: WSL2-based backend
 ## Requirements
 
 - **macOS**: Lima (install: `brew install lima`)
-- **Linux**: Coming soon 🚧
+- **Linux**: nsjail (see installation instructions above) + Python 3.10+
 - **Windows**: Coming soon 🚧
 
 ## Security Features

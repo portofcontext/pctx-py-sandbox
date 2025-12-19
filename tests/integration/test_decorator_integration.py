@@ -25,7 +25,7 @@ class TestSandboxDecoratorIntegration:
 
         @sandbox(dependencies=["requests==2.31.0"])
         def get_requests_version() -> str:
-            import requests
+            import requests  # type: ignore[import-untyped]
 
             return requests.__version__
 
@@ -37,7 +37,7 @@ class TestSandboxDecoratorIntegration:
 
         @sandbox(dependencies=["numpy==1.24.0"])
         def compute_mean(numbers: list[float]) -> float:
-            import numpy as np
+            import numpy as np  # type: ignore[import-untyped]
 
             return float(np.mean(numbers))
 
@@ -171,7 +171,7 @@ class TestSandboxDecoratorIntegration:
 
         @sandbox(dependencies=["pandas==2.0.0", "numpy<2.0"])
         def process_data() -> dict[str, list[int]]:
-            import pandas as pd
+            import pandas as pd  # type: ignore[import-untyped]
 
             df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
             return df.to_dict(orient="list")
@@ -262,8 +262,8 @@ class TestSandboxDecoratorIntegration:
 
         @sandbox(dependencies=["requests==2.31.0", "certifi==2023.7.22"])
         def check_multiple_deps() -> tuple[str, str]:
-            import certifi
-            import requests
+            import certifi  # type: ignore[import-untyped]
+            import requests  # type: ignore[import-untyped]
 
             return (requests.__version__, certifi.__version__)
 

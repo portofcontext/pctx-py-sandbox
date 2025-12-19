@@ -11,7 +11,7 @@ help:
 	@echo "  make test-integration - Run integration tests"
 	@echo "  make test-security    - Run security tests"
 	@echo "  make test-all         - Run all tests"
-	@echo "  make type-check       - Run type checking with mypy"
+	@echo "  make type-check       - Run type checking with ty"
 	@echo "  make clean            - Clean build artifacts"
 	@echo "  make build            - Build package"
 
@@ -46,14 +46,13 @@ test-all:
 	uv run pytest tests/ -v
 
 type-check:
-	uv run mypy src/pctx_sandbox --ignore-missing-imports
+	uvx ty check
 
 clean:
 	rm -rf build/
 	rm -rf dist/
 	rm -rf *.egg-info
 	rm -rf .pytest_cache
-	rm -rf .mypy_cache
 	rm -rf .ruff_cache
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete

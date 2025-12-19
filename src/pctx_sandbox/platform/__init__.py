@@ -38,7 +38,8 @@ def get_backend() -> SandboxBackend:
 
     Raises:
         LimaNotInstalledError: On macOS without Lima installed
-        PlatformNotSupportedError: On unsupported platforms (Linux/Windows)
+        NsjailNotInstalledError: On Linux without nsjail installed
+        PlatformNotSupportedError: On unsupported platforms (Windows)
     """
     platform = detect_platform()
 
@@ -49,25 +50,34 @@ def get_backend() -> SandboxBackend:
         from ..exceptions import LimaNotInstalledError
         from .lima import LimaBackend
 
-        backend = LimaBackend()
-        if not backend.is_available():
+        darwin_backend: SandboxBackend = LimaBackend()
+        if not darwin_backend.is_available():
             raise LimaNotInstalledError(
                 "Lima is not installed.\n\n"
                 "Install Lima using Homebrew:\n"
                 "  brew install lima\n\n"
                 "Or visit: https://lima-vm.io/docs/installation/"
             )
-        return backend
+        return darwin_backend
 
     elif platform == "linux":
-        # TODO: Implement Linux support with native firejail/bubblewrap
-        from ..exceptions import PlatformNotSupportedError
+        # Linux: Use native nsjail sandboxing (no VM layer)
+        # Provides process-level isolation with Linux namespaces, cgroups, and seccomp
+        from ..exceptions import NsjailNotInstalledError
+        from .native import NativeBackend
 
-        raise PlatformNotSupportedError(
-            "Linux support is not yet implemented.\n\n"
-            "Planned implementation: Native firejail/bubblewrap sandboxing\n"
-            "Track progress: https://github.com/portofcontext/python-sandbox/issues"
-        )
+        linux_backend: SandboxBackend = NativeBackend()
+        if not linux_backend.is_available():
+            raise NsjailNotInstalledError(
+                "nsjail is not installed or Python version < 3.10.\n\n"
+                "Install nsjail on Ubuntu/Debian:\n"
+                "  curl -fsSL https://raw.githubusercontent.com/portofcontext/python-sandbox/main/scripts/install-linux-deps.sh | bash\n\n"
+                "Or manually:\n"
+                "  git clone https://github.com/portofcontext/python-sandbox.git\n"
+                "  cd python-sandbox && bash scripts/install-linux-deps.sh\n\n"
+                "For other distributions: https://github.com/google/nsjail"
+            )
+        return linux_backend
 
     elif platform == "win32":
         # TODO: Implement Windows support with WSL2

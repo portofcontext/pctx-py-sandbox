@@ -18,7 +18,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
 
       - name: Set up Python
         run: uv python install 3.11
@@ -30,8 +30,8 @@ jobs:
 
       - name: Run tests with updated dependencies
         run: |
-          uv sync --all-extras
-          uv run pytest tests/unit/ -v
+          make install
+          make test-unit
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6

@@ -35,13 +35,31 @@ provision:
         curl \
         git \
         build-essential \
-        firejail
+        autoconf \
+        bison \
+        flex \
+        gcc \
+        g++ \
+        protobuf-compiler \
+        libprotobuf-dev \
+        libnl-route-3-dev \
+        libtool \
+        pkg-config
 
       # Install uv for Python package management
       curl -LsSf https://astral.sh/uv/install.sh | sh
 
       # Install Python venv
       apt-get install -y python3-venv
+
+      # Build and install nsjail from source
+      cd /tmp
+      git clone https://github.com/google/nsjail.git
+      cd nsjail
+      make
+      cp nsjail /usr/local/bin/
+      cd /
+      rm -rf /tmp/nsjail
 
       # Create cache directory
       mkdir -p /tmp/pctx-cache
