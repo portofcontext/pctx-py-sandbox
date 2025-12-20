@@ -116,11 +116,12 @@ class SimpleExecutor:
 
                 shutil.rmtree(venv_path)
 
-        # Create venv
+        # Create venv with upgraded pip
         proc = await asyncio.create_subprocess_exec(
             "python3",
             "-m",
             "venv",
+            "--upgrade-deps",  # Upgrade pip, setuptools in the venv (Python 3.9+)
             str(venv_path),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
