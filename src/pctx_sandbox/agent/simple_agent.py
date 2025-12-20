@@ -27,13 +27,13 @@ class SimpleExecutor:
     def __init__(
         self,
         cache_dir: Path = Path("/tmp/pctx-cache"),
-        pool_size: int = 5,
+        pool_size: int = 3,
     ) -> None:
         """Initialize executor.
 
         Args:
             cache_dir: Directory for dependency caches
-            pool_size: Number of warm workers to maintain per venv
+            pool_size: Number of warm workers to maintain per venv (default: 3)
         """
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -125,11 +125,17 @@ class SimpleExecutor:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        await proc.wait()
+        returncode = await proc.wait()
+        if returncode != 0:
+            stderr = await proc.stderr.read() if proc.stderr else b""
+            raise RuntimeError(f"Failed to create venv at {venv_path}: {stderr.decode()}")
 
         # Install dependencies
         # Worker needs: cloudpickle (for serialization), fastapi+uvicorn (for HTTP server)
         pip_bin = venv_path / "bin" / "pip"
+        if not pip_bin.exists():
+            raise RuntimeError(f"pip not found at {pip_bin} after venv creation")
+
         proc = await asyncio.create_subprocess_exec(
             str(pip_bin),
             "install",
@@ -141,7 +147,10 @@ class SimpleExecutor:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        await proc.wait()
+        returncode = await proc.wait()
+        if returncode != 0:
+            stderr = await proc.stderr.read() if proc.stderr else b""
+            raise RuntimeError(f"Failed to install dependencies: {stderr.decode()}")
 
         self.dep_envs[dep_hash] = venv_path
         return venv_path

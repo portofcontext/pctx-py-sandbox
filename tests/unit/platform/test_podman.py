@@ -19,14 +19,14 @@ class TestPodmanBackend:
         assert backend.AGENT_PORT == 9000
         assert backend.CONTAINER_NAME == "pctx-sandbox-agent"
         assert backend.IMAGE_NAME == "pctx-sandbox-agent"
-        assert backend.cpus == 2
-        assert backend.memory_gb == 2
+        assert backend.cpus == 4
+        assert backend.memory_gb == 4
 
     def test_initialization_with_custom_resources(self):
         """Should initialize with custom resource limits."""
-        backend = PodmanBackend(cpus=4, memory_gb=8)
-        assert backend.cpus == 4
-        assert backend.memory_gb == 8
+        backend = PodmanBackend(cpus=2, memory_gb=2)
+        assert backend.cpus == 2
+        assert backend.memory_gb == 2
 
     def test_is_available_when_podman_installed(self):
         """Should return True when podman is in PATH."""
@@ -168,16 +168,20 @@ class TestPodmanBackend:
         """Should start container with correct resource limits and ports."""
         backend = PodmanBackend(cpus=4, memory_gb=8)
 
-        # Mock rm and run
+        # Mock rm, cgroup check, and run
         mock_rm_result = Mock()
+        mock_cgroup_result = Mock()
+        mock_cgroup_result.returncode = 0  # cgroup controllers available
         mock_run_result = Mock()
         mock_run_result.returncode = 0
 
-        with patch("subprocess.run", side_effect=[mock_rm_result, mock_run_result]) as mock_run:
+        with patch(
+            "subprocess.run", side_effect=[mock_rm_result, mock_cgroup_result, mock_run_result]
+        ) as mock_run:
             backend._start_container()
 
-            # Check run command
-            run_call = mock_run.call_args_list[1]
+            # Check run command (third call)
+            run_call = mock_run.call_args_list[2]
             cmd = run_call[0][0]
 
             assert "podman" in cmd
@@ -206,14 +210,10 @@ class TestPodmanBackend:
             assert backend.CONTAINER_NAME in cmd
 
     def test_destroy_removes_container_and_image(self):
-        """Should remove container, image, and cache directory."""
+        """Should remove container and image."""
         backend = PodmanBackend()
 
-        with (
-            patch("subprocess.run") as mock_run,
-            patch("pathlib.Path.exists", return_value=True),
-            patch("shutil.rmtree") as mock_rmtree,
-        ):
+        with patch("subprocess.run") as mock_run:
             backend.destroy()
 
             # Should call podman rm and podman rmi
@@ -223,6 +223,3 @@ class TestPodmanBackend:
             calls = [str(call[0][0]) for call in mock_run.call_args_list]
             assert any("rm" in call for call in calls)
             assert any("rmi" in call for call in calls)
-
-            # Should remove cache directory
-            mock_rmtree.assert_called_once()

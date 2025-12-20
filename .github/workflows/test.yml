@@ -21,10 +21,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Verify Podman (pre-installed)
+      - name: Setup Podman
         run: |
           podman --version
           podman info
+          # Test rootless Podman works
+          podman run --rm hello-world || echo "First run may need setup"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7

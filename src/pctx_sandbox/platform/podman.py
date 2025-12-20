@@ -28,12 +28,12 @@ class PodmanBackend(SandboxBackend):
         """Initialize the Podman backend.
 
         Args:
-            cpus: Number of CPUs for containers (default: 2, or PCTX_PODMAN_CPUS env var)
-            memory_gb: Memory in GB (default: 2, or PCTX_PODMAN_MEMORY_GB env var)
+            cpus: Number of CPUs for containers (default: 4, or PCTX_PODMAN_CPUS env var)
+            memory_gb: Memory in GB (default: 4, or PCTX_PODMAN_MEMORY_GB env var)
         """
         self._agent_url = f"http://localhost:{self.AGENT_PORT}"
-        self.cpus = cpus or int(os.getenv("PCTX_PODMAN_CPUS", "2"))
-        self.memory_gb = memory_gb or int(os.getenv("PCTX_PODMAN_MEMORY_GB", "2"))
+        self.cpus = cpus or int(os.getenv("PCTX_PODMAN_CPUS", "4"))
+        self.memory_gb = memory_gb or int(os.getenv("PCTX_PODMAN_MEMORY_GB", "4"))
 
     @property
     def agent_url(self) -> str:
@@ -131,6 +131,23 @@ class PodmanBackend(SandboxBackend):
             # Clean up temp file
             Path(authfile_path).unlink(missing_ok=True)
 
+    def _has_cgroup_controllers(self) -> bool:
+        """Check if cpu cgroup controller is available for podman."""
+        # Try to run a simple container with cpu limits to see if it works
+        result = subprocess.run(
+            [
+                "podman",
+                "run",
+                "--rm",
+                "--cpus",
+                "1",
+                "alpine:latest",
+                "true",
+            ],
+            capture_output=True,
+        )
+        return result.returncode == 0
+
     def _start_container(self) -> None:
         """Start the agent container."""
         # Remove old container if it exists
@@ -139,10 +156,6 @@ class PodmanBackend(SandboxBackend):
             capture_output=True,
         )
 
-        # Create cache directory in home directory (works across platforms)
-        cache_dir = Path.home() / ".pctx-sandbox-cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-
         # Create temporary empty auth file to disable credential helpers
         import tempfile
 
@@ -150,39 +163,52 @@ class PodmanBackend(SandboxBackend):
             f.write('{"auths":{}}')
             authfile_path = f.name
 
-        # Start new container
-        try:
-            subprocess.run(
+        # Build base command
+        cmd = [
+            "podman",
+            "run",
+            "-d",
+            f"--authfile={authfile_path}",  # Use empty auth file
+            "--name",
+            self.CONTAINER_NAME,
+        ]
+
+        # Only add resource limits if cgroup controllers are available
+        if self._has_cgroup_controllers():
+            cmd.extend(
                 [
-                    "podman",
-                    "run",
-                    "-d",
-                    f"--authfile={authfile_path}",  # Use empty auth file
-                    "--name",
-                    self.CONTAINER_NAME,
                     "--memory",
                     f"{self.memory_gb}g",
                     "--cpus",
                     str(self.cpus),
-                    "-p",
-                    f"{self.AGENT_PORT}:{self.AGENT_PORT}",
-                    # Enforce proper isolation
-                    "--userns=auto",  # Use user namespace remapping
-                    "--pid=private",  # Private PID namespace
-                    "--ipc=private",  # Private IPC namespace
-                    # Drop all capabilities
-                    "--cap-drop=ALL",
-                    # Prevent privilege escalation
-                    "--security-opt",
-                    "no-new-privileges",
-                    # Mount cache directory for dependency caching
-                    "-v",
-                    f"{cache_dir}:/tmp/pctx-cache",
-                    # Disable SELinux label enforcement (needed for rootless)
-                    "--security-opt",
-                    "label=disable",
-                    self.IMAGE_NAME,
-                ],
+                ]
+            )
+
+        # Add remaining arguments
+        cmd.extend(
+            [
+                "-p",
+                f"{self.AGENT_PORT}:{self.AGENT_PORT}",
+                # Enforce proper isolation
+                "--userns=auto",  # Use user namespace remapping
+                "--pid=private",  # Private PID namespace
+                "--ipc=private",  # Private IPC namespace
+                # Drop all capabilities
+                "--cap-drop=ALL",
+                # Prevent privilege escalation
+                "--security-opt",
+                "no-new-privileges",
+                # Disable SELinux label enforcement (needed for rootless)
+                "--security-opt",
+                "label=disable",
+                self.IMAGE_NAME,
+            ]
+        )
+
+        # Start new container
+        try:
+            subprocess.run(
+                cmd,
                 check=True,
                 capture_output=True,
                 text=True,
@@ -215,8 +241,3 @@ class PodmanBackend(SandboxBackend):
             ["podman", "rmi", "-f", self.IMAGE_NAME],
             capture_output=True,
         )
-
-        # Remove cache directory
-        cache_dir = Path.home() / ".pctx-sandbox-cache"
-        if cache_dir.exists():
-            shutil.rmtree(cache_dir)

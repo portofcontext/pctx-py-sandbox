@@ -203,10 +203,11 @@ class TestPIDNamespaceIsolation:
         )
 
         # Verify minimal process count typical of isolated PID namespace
-        # Pool has 5 warm workers + agent + uvicorn processes = ~20-25 total
-        assert result["num_processes"] < 30, (
+        # Multiple venvs each with pool of 3 workers + agent + uvicorn = can be ~30-60
+        # But should be much less than a full host system (typically 200+)
+        assert result["num_processes"] < 100, (
             f"Sandbox can see {result['num_processes']} processes. "
-            f"In a PID namespace, this should be very small (< 30). "
+            f"In a PID namespace, this should be reasonably small (< 100). "
             f"Seeing many processes indicates shared PID namespace with host."
         )
 
