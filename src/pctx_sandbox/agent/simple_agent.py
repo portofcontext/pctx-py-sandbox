@@ -105,9 +105,16 @@ class SimpleExecutor:
         venv_path = self.cache_dir / f"venv-{dep_hash}"
         pip_bin = venv_path / "bin" / "pip"
 
-        if venv_path.exists() and pip_bin.exists():
-            self.dep_envs[dep_hash] = venv_path
-            return venv_path
+        if venv_path.exists():
+            if pip_bin.exists():
+                # Venv is complete and valid
+                self.dep_envs[dep_hash] = venv_path
+                return venv_path
+            else:
+                # Venv exists but is incomplete - remove and recreate
+                import shutil
+
+                shutil.rmtree(venv_path)
 
         # Create venv
         proc = await asyncio.create_subprocess_exec(
