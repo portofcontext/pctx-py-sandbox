@@ -70,7 +70,7 @@ class SimpleExecutor:
         Returns:
             Result dictionary
         """
-        # Ensure dependencies are installed
+        # Ensure dependencies are installed using uv
         venv_path = await self._ensure_venv(dep_hash, dependencies)
 
         # Get or create pool for this dependency set
@@ -87,7 +87,7 @@ class SimpleExecutor:
         )
 
     async def _ensure_venv(self, dep_hash: str, dependencies: list[str]) -> Path | None:
-        """Ensure virtual environment with dependencies exists.
+        """Ensure virtual environment with dependencies exists using uv.
 
         Args:
             dep_hash: Hash of dependencies
@@ -103,25 +103,16 @@ class SimpleExecutor:
             return self.dep_envs[dep_hash]
 
         venv_path = self.cache_dir / f"venv-{dep_hash}"
-        pip_bin = venv_path / "bin" / "pip"
 
-        if venv_path.exists():
-            if pip_bin.exists():
-                # Venv is complete and valid
-                self.dep_envs[dep_hash] = venv_path
-                return venv_path
-            else:
-                # Venv exists but is incomplete - remove and recreate
-                import shutil
+        # If venv already exists on disk, reuse it
+        if venv_path.exists() and (venv_path / "bin" / "python").exists():
+            self.dep_envs[dep_hash] = venv_path
+            return venv_path
 
-                shutil.rmtree(venv_path)
-
-        # Create venv with upgraded pip
+        # Create venv using uv (faster and more reliable than python -m venv)
         proc = await asyncio.create_subprocess_exec(
-            "python3",
-            "-m",
+            "uv",
             "venv",
-            "--upgrade-deps",  # Upgrade pip, setuptools in the venv (Python 3.9+)
             str(venv_path),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -131,20 +122,17 @@ class SimpleExecutor:
             stderr = await proc.stderr.read() if proc.stderr else b""
             raise RuntimeError(f"Failed to create venv at {venv_path}: {stderr.decode()}")
 
-        # Install dependencies
+        # Install dependencies using uv (much faster and more reliable than pip)
         # Worker needs: cloudpickle (for serialization), fastapi+uvicorn (for HTTP server)
-        pip_bin = venv_path / "bin" / "pip"
-        if not pip_bin.exists():
-            raise RuntimeError(f"pip not found at {pip_bin} after venv creation")
-
+        all_deps = ["cloudpickle", "fastapi", "uvicorn", *dependencies]
         proc = await asyncio.create_subprocess_exec(
-            str(pip_bin),
+            "uv",
+            "pip",
             "install",
-            "--no-cache-dir",
-            "cloudpickle",
-            "fastapi",
-            "uvicorn",
-            *dependencies,
+            "--python",
+            str(venv_path / "bin" / "python"),
+            "--no-cache",
+            *all_deps,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

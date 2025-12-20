@@ -47,7 +47,7 @@ class SandboxWorker:
         """Start the worker process and wait for it to be ready.
 
         This method:
-        1. Spawns Python process running worker.py HTTP server
+        1. Spawns Python process running worker.py HTTP server via uvx
         2. Waits for worker to write "READY:PORT" to stdout
         3. Verifies worker is healthy with HTTP health check
         4. Returns only when worker is definitely ready to accept jobs
