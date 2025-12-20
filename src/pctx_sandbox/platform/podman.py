@@ -103,6 +103,7 @@ class PodmanBackend(SandboxBackend):
         # Get Python version to match host
         import sys
         import tempfile
+
         python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
 
         # Create temporary empty auth file to disable credential helpers
