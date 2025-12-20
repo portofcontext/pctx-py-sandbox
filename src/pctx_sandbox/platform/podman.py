@@ -100,9 +100,12 @@ class PodmanBackend(SandboxBackend):
         if not dockerfile_path.exists():
             raise SandboxStartupError(f"Dockerfile not found at {dockerfile_path}")
 
-        # Create temporary empty auth file to disable credential helpers
+        # Get Python version to match host
+        import sys
         import tempfile
+        python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
 
+        # Create temporary empty auth file to disable credential helpers
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write('{"auths":{}}')
             authfile_path = f.name
@@ -113,6 +116,8 @@ class PodmanBackend(SandboxBackend):
                     "podman",
                     "build",
                     f"--authfile={authfile_path}",  # Use empty auth file
+                    "--build-arg",
+                    f"PYTHON_VERSION={python_version}",
                     "-t",
                     self.IMAGE_NAME,
                     "-f",
