@@ -140,9 +140,9 @@ class TestFilesystemIsolation:
         try_write_host(host_file)
 
         # Verify file does not exist on host filesystem
-        assert not os.path.exists(host_file), (
-            "Sandbox should not be able to write to host filesystem"
-        )
+        assert not os.path.exists(
+            host_file
+        ), "Sandbox should not be able to write to host filesystem"
 
         if os.path.exists(host_file):
             os.remove(host_file)
@@ -193,9 +193,9 @@ class TestEnvironmentIsolation:
 
         # Verify environment isolation via hostname difference
         if sys.platform == "darwin":
-            assert result["hostname"] != host_hostname, (
-                "Sandbox should run in VM with different hostname"
-            )
+            assert (
+                result["hostname"] != host_hostname
+            ), "Sandbox should run in VM with different hostname"
         # Note: On Linux, UTS namespace isolation is tested in test_isolation_mechanisms.py
 
     def test_different_hostname_in_sandbox(self):
@@ -213,9 +213,9 @@ class TestEnvironmentIsolation:
 
         # Verify hostname isolation
         if sys.platform == "darwin":
-            assert sandbox_hostname != host_hostname, (
-                "Sandbox should have different hostname than host"
-            )
+            assert (
+                sandbox_hostname != host_hostname
+            ), "Sandbox should have different hostname than host"
         # Note: On Linux, UTS namespace isolation is tested in test_isolation_mechanisms.py
 
 
@@ -430,12 +430,12 @@ class TestPrivilegeIsolation:
         # On Linux: chown should fail due to user namespace isolation
         # On macOS: chown may succeed but is isolated to the container
         if sys.platform == "linux":
-            assert result["chown_worked"] is False, (
-                "chown to root should fail in user namespace on Linux"
-            )
-            assert result["error"] == "PermissionError", (
-                f"Expected PermissionError on Linux, got {result['error']}"
-            )
+            assert (
+                result["chown_worked"] is False
+            ), "chown to root should fail in user namespace on Linux"
+            assert (
+                result["error"] == "PermissionError"
+            ), f"Expected PermissionError on Linux, got {result['error']}"
         # On macOS, we just verify the test runs without host impact
 
     def test_no_sudo_available(self):

@@ -198,9 +198,9 @@ class TestPIDNamespaceIsolation:
         result = get_sandbox_pid_info()
 
         # Verify host PID is not visible in sandbox
-        assert host_pid not in result["visible_pids"], (
-            f"Sandbox can see host PID {host_pid}. This means PID namespace isolation is broken."
-        )
+        assert (
+            host_pid not in result["visible_pids"]
+        ), f"Sandbox can see host PID {host_pid}. This means PID namespace isolation is broken."
 
         # Verify minimal process count typical of isolated PID namespace
         # Multiple venvs each with pool of 3 workers + agent + uvicorn = can be ~30-60
@@ -324,9 +324,9 @@ class TestUserNamespaceIsolation:
         result = try_privileged_operations()
 
         # Verify privileged operations are blocked regardless of UID 0 status
-        assert result.get("can_read_shadow", False) is False, (
-            "Sandbox can read /etc/shadow! This means it has real root privileges."
-        )
+        assert (
+            result.get("can_read_shadow", False) is False
+        ), "Sandbox can read /etc/shadow! This means it has real root privileges."
 
 
 @pytest.mark.requires_sandbox_agent
@@ -459,9 +459,9 @@ class TestCapabilityDropping:
         result = try_mount()
 
         # Verify mount operation is blocked
-        assert result["success"] is False, (
-            f"Sandbox allowed mount()! Result: {result}. This means CAP_SYS_ADMIN was not dropped."
-        )
+        assert (
+            result["success"] is False
+        ), f"Sandbox allowed mount()! Result: {result}. This means CAP_SYS_ADMIN was not dropped."
 
 
 @pytest.mark.requires_sandbox_agent

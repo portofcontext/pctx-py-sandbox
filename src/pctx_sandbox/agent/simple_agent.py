@@ -109,7 +109,11 @@ class SimpleExecutor:
             self.dep_envs[dep_hash] = venv_path
             return venv_path
 
-        # Create venv using uv (faster and more reliable than python -m venv)
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"Creating venv at {venv_path} with Python {sys.executable}")
+
         proc = await asyncio.create_subprocess_exec(
             "uv",
             "venv",
@@ -120,28 +124,40 @@ class SimpleExecutor:
             stderr=asyncio.subprocess.PIPE,
         )
         returncode = await proc.wait()
+        stdout_data = await proc.stdout.read() if proc.stdout else b""
+        stderr_data = await proc.stderr.read() if proc.stderr else b""
+
         if returncode != 0:
-            stderr = await proc.stderr.read() if proc.stderr else b""
-            raise RuntimeError(f"Failed to create venv at {venv_path}: {stderr.decode()}")
+            raise RuntimeError(f"Failed to create venv at {venv_path}: {stderr_data.decode()}")
+
+        logger.info(f"Venv created. stdout: {stdout_data.decode()[:200]}")
 
         # Install dependencies using uv (much faster and more reliable than pip)
         # Worker needs: cloudpickle (for serialization), fastapi+uvicorn (for HTTP server)
         all_deps = ["cloudpickle", "fastapi", "uvicorn", *dependencies]
+        venv_python_path = str(venv_path / "bin" / "python")
+
+        logger.info(f"Installing {len(all_deps)} packages to {venv_python_path}: {all_deps}")
+
         proc = await asyncio.create_subprocess_exec(
             "uv",
             "pip",
             "install",
             "--python",
-            str(venv_path / "bin" / "python"),
+            venv_python_path,
             "--no-cache",
             *all_deps,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         returncode = await proc.wait()
+        stdout_data = await proc.stdout.read() if proc.stdout else b""
+        stderr_data = await proc.stderr.read() if proc.stderr else b""
+
         if returncode != 0:
-            stderr = await proc.stderr.read() if proc.stderr else b""
-            raise RuntimeError(f"Failed to install dependencies: {stderr.decode()}")
+            raise RuntimeError(f"Failed to install dependencies: {stderr_data.decode()}")
+
+        logger.info(f"Packages installed. Last 500 chars of output: {stdout_data.decode()[-500:]}")
 
         self.dep_envs[dep_hash] = venv_path
         return venv_path

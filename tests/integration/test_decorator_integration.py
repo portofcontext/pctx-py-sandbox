@@ -211,9 +211,9 @@ class TestSandboxDecoratorIntegration:
 
         # Verify we're NOT on the host system
         # (Container will have different user/hostname)
-        assert result["user"] != host_user or result["hostname"] != host_hostname, (
-            f"Sandbox should run in VM, not on host. Got user={result['user']}, hostname={result['hostname']}"
-        )
+        assert (
+            result["user"] != host_user or result["hostname"] != host_hostname
+        ), f"Sandbox should run in VM, not on host. Got user={result['user']}, hostname={result['hostname']}"
 
     def test_environment_isolation(self) -> None:
         """Test that environment variables are isolated."""
