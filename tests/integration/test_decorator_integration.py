@@ -35,7 +35,7 @@ class TestSandboxDecoratorIntegration:
     def test_function_with_numpy(self) -> None:
         """Test function with numpy dependency."""
 
-        @sandbox(dependencies=["numpy==1.24.0"])
+        @sandbox(dependencies=["numpy>=1.24.0"])
         def compute_mean(numbers: list[float]) -> float:
             import numpy as np  # type: ignore[import-untyped]
 
@@ -169,7 +169,7 @@ class TestSandboxDecoratorIntegration:
     def test_pandas_dataframe(self) -> None:
         """Test function using pandas."""
 
-        @sandbox(dependencies=["pandas==2.0.0", "numpy<2.0"])
+        @sandbox(dependencies=["pandas>=2.0.0", "numpy<2.0"])
         def process_data() -> dict[str, list[int]]:
             import pandas as pd  # type: ignore[import-untyped]
 

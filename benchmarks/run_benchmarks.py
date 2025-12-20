@@ -100,7 +100,7 @@ def benchmark_with_dependencies():
 
     @sandbox(dependencies=["numpy"], disable_cache=True)
     def numpy_func_no_cache(size: int) -> float:
-        import numpy as np
+        import numpy as np  # type: ignore
 
         arr = np.random.rand(size)
         return float(arr.mean())
@@ -122,7 +122,7 @@ def benchmark_with_dependencies():
 
     @sandbox(dependencies=["numpy"])
     def numpy_func_with_cache(size: int) -> float:
-        import numpy as np
+        import numpy as np  # type: ignore
 
         arr = np.random.rand(size)
         return float(arr.mean())
