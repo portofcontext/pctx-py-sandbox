@@ -113,6 +113,8 @@ class SimpleExecutor:
         proc = await asyncio.create_subprocess_exec(
             "uv",
             "venv",
+            "--python",
+            sys.executable,
             str(venv_path),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
