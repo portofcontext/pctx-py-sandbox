@@ -59,10 +59,9 @@ class SandboxWorker:
 
         cmd = [
             str(self.python_bin),
-            "-c",
-            f"import sys; print(f'PYTHON_INFO: {{sys.executable}} {{sys.version}}', flush=True); exec(open('{worker_script}').read())",
+            str(worker_script),
         ]
-        logger.info(f"Worker {self.worker_id}: python_bin={self.python_bin}, command: {' '.join(cmd)}")
+        logger.debug(f"Worker {self.worker_id}: starting with command: {' '.join(cmd)}")
 
         # Start the process
         self.process = await asyncio.create_subprocess_exec(

@@ -28,10 +28,8 @@ jobs:
           # Test rootless Podman works
           podman run --rm hello-world || echo "First run may need setup"
           # Clean up any existing pctx-sandbox containers/images for fresh state
-          podman rm -f pctx-sandbox-agent || true
-          podman rmi -f pctx-sandbox-agent || true
-          # Clean up venv cache that might have wrong Python versions
-          rm -rf /tmp/pctx-cache || true
+          podman ps -a --filter "name=pctx-sandbox-agent" --format "{{.Names}}" | xargs -r podman rm -f
+          podman images --filter "reference=pctx-sandbox-agent*" --format "{{.Repository}}:{{.Tag}}" | xargs -r podman rmi -f
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
